@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Linye 3B Görüntüleyici</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: full-screen drawing board; a side rail on wide screens, a bottom sheet on phones. Single dark "drafting table" theme by choice. */
+  --board:#0f1724; --rail:#162134; --raised:#1e2c44; --line:#2b3b57;
+  --ink:#e8edf5; --mute:#8d9bb3; --accent:#ffb224; --accent-ink:#1b1300; --bad:#ff6b5e;
+  --display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--board);color:var(--ink);font:14px/1.4 var(--body);overflow:hidden;display:flex;flex-direction:column}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+header{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--rail);border-bottom:1px solid var(--line);flex:none}
+header h1{font:600 20px/1 var(--display);letter-spacing:.04em;text-transform:uppercase;margin:0;white-space:nowrap}
+header h1 span{color:var(--accent)}
+#fname{color:var(--mute);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+.btn{background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:7px 12px;white-space:nowrap}
+.btn:hover{border-color:var(--mute)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;flex:none}
+.seg button{background:var(--raised);border:0;padding:7px 12px;font-weight:600}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+main{flex:1;display:flex;min-height:0;position:relative}
+#rail{width:330px;flex:none;background:var(--rail);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+#stage{flex:1;position:relative;min-width:0;touch-action:none;overflow:hidden}
+#gl,#ov{position:absolute;inset:0;width:100%;height:100%;display:block}
+#ov{pointer-events:none}
+.tabs{display:flex;border-bottom:1px solid var(--line);flex:none}
+.tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;padding:10px 4px;color:var(--mute);font-weight:600}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.pane{flex:1;overflow:auto;min-height:0;display:none;flex-direction:column}
+.pane.on{display:flex}
+.sum{display:flex;gap:16px;padding:10px 12px;border-bottom:1px solid var(--line);flex:none}
+.sum div{display:flex;flex-direction:column}
+.sum b{font:500 18px/1.1 var(--mono);font-variant-numeric:tabular-nums}
+.sum small{color:var(--mute);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.search{margin:8px 12px;padding:7px 10px;background:var(--board);border:1px solid var(--line);border-radius:6px;flex:none}
+.list{list-style:none;margin:0;padding:0 6px 10px}
+.list li{display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:6px;cursor:pointer;border:1px solid transparent}
+.list li:hover{background:var(--raised)}
+.list li.sel{background:var(--raised);border-color:var(--accent)}
+.sw{width:12px;height:12px;border-radius:3px;flex:none}
+.nm{flex:1;min-width:0;overflow-wrap:anywhere}
+.nm small{display:block;color:var(--mute);font-size:11px}
+.len{font:500 13px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.hint{color:var(--mute);padding:10px 12px;font-size:12.5px}
+.lay li{cursor:default}
+.lay label{display:flex;align-items:center;cursor:pointer}
+.lay input{accent-color:var(--accent);width:16px;height:16px;flex:none}
+.form{padding:12px;display:grid;gap:12px}
+.form label{display:grid;gap:4px;font-size:12.5px;color:var(--mute)}
+.form input[type=number],.form select{background:var(--board);border:1px solid var(--line);border-radius:6px;padding:7px 9px;color:var(--ink)}
+.form .chk{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:14px}
+.form .chk input{accent-color:var(--accent);width:16px;height:16px}
+#card{position:absolute;right:12px;top:12px;width:270px;max-width:calc(100% - 24px);background:var(--rail);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:12px;display:none;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+#card h2{font:600 20px/1.15 var(--display);letter-spacing:.03em;margin:0 24px 8px 0;overflow-wrap:anywhere}
+#cp{color:var(--mute);font-size:12.5px;margin:-4px 0 8px;overflow-wrap:anywhere}
+#card dl{display:grid;grid-template-columns:1fr auto;gap:3px 10px;margin:0}
+#card dt{color:var(--mute)}
+#card dd{margin:0;font:500 13px var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+#card .tot{border-top:1px solid var(--line);padding-top:5px;margin-top:3px;color:var(--ink);font-weight:600}
+#card dd.tot{color:var(--accent);font-size:15px}
+#card .dev{margin-top:8px;color:var(--mute);font-size:12px;overflow-wrap:anywhere}
+#card .x{position:absolute;right:6px;top:6px;background:none;border:0;color:var(--mute);font-size:18px;padding:4px 8px}
+#card .row{display:flex;gap:8px;margin-top:10px}
+#card .row .btn{flex:1;padding:6px 6px;font-size:13px}
+#tour{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:min(520px,calc(100% - 16px));background:var(--rail);border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:none;flex-direction:column;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+#tbarw{height:4px;background:var(--board);border-radius:2px;overflow:hidden}
+#tbar{height:100%;width:0;background:var(--accent)}
+.trow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#tp{flex:1;font:500 13px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+#tspeed{background:var(--board);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+.trow .btn{padding:6px 10px}
+.lay li>label{flex:none;gap:4px;font-size:12px;color:var(--mute)}
+#chip{position:absolute;left:12px;top:12px;background:var(--accent);color:var(--accent-ink);font-weight:600;border-radius:99px;padding:4px 12px;font-size:12px;display:none}
+#help{position:absolute;left:12px;bottom:10px;color:var(--mute);font-size:11.5px;pointer-events:none;text-shadow:0 1px 2px var(--board)}
+#busy{position:absolute;inset:0;background:rgba(15,23,36,.82);display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;font-weight:600;z-index:5;text-align:center;padding:20px}
+#busy.err{color:var(--bad)}
+#busy .btn{display:none}
+#busy.err .btn{display:inline-block;color:var(--ink)}
+#sheetbtn{display:none}
+@media (max-width:760px){
+  header h1{font-size:17px}
+  #fname{display:none}
+  header{gap:6px;padding:6px 8px}
+  header .sp{flex:1}
+  main{flex-direction:column-reverse}
+  #rail{width:auto;border-right:0;border-top:1px solid var(--line);height:44%}
+  body.closed #rail{display:none}
+  #sheetbtn{display:inline-block}
+  #card{left:8px;right:8px;top:auto;bottom:8px;width:auto;max-width:none;padding:8px 10px}
+  #card h2{font-size:17px;margin-bottom:4px}
+  #card .dev{display:none}
+  #card .row{margin-top:6px}
+  #help{display:none}
+}
+@media (min-width:761px){header .sp{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Linye <span>3B</span></h1>
+  <div id="fname">Örnek plan</div>
+  <div class="sp"></div>
+  <div class="seg" role="group" aria-label="Görünüm">
+    <button id="b2d" type="button" aria-pressed="true">2B</button>
+    <button id="b3d" type="button" aria-pressed="false">3B</button>
+  </div>
+  <button class="btn" id="sheetbtn" type="button">Liste</button>
+  <button class="btn primary" id="open" type="button">Dosya aç</button>
+  <input type="file" id="file" accept=".dwg,.dxf" hidden>
+</header>
+<main>
+  <aside id="rail">
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" data-p="p1" aria-selected="true">Hatlar</button>
+      <button type="button" role="tab" data-p="p2" aria-selected="false">Katmanlar</button>
+      <button type="button" role="tab" data-p="p3" aria-selected="false">Ayarlar</button>
+    </div>
+    <section class="pane on" id="p1">
+      <div class="sum"><div><b id="sN">0</b><small>hat</small></div><div><b id="sL">0 m</b><small>toplam tahmini kablo</small></div><div><b id="sD">0</b><small>cihaz</small></div></div>
+      <input class="search" id="q1" type="search" placeholder="Hat ara (örn. A12, YL3)" aria-label="Hat ara">
+      <ul class="list" id="circ"></ul>
+      <div class="hint" id="nocirc" style="display:none">Bu çizimde hat katmanı otomatik bulunamadı. Katmanlar sekmesinden kablo çizgilerinin olduğu katmanları işaretleyin.</div>
+    </section>
+    <section class="pane" id="p2">
+      <div class="hint">Hat işaretli katmanlardaki çizgiler kablo, bloklar cihaz olarak okunur. Duvar işaretli katmanlar 3B'de yükseltilir. Çizimde linye numarası etiketleri ve pano varsa hatlar etikete göre ayrılır; yoksa her katman bir hat sayılır.</div>
+      <input class="search" id="q2" type="search" placeholder="Katman ara" aria-label="Katman ara">
+      <ul class="list lay" id="lay"></ul>
+    </section>
+    <section class="pane" id="p3">
+      <div class="form">
+        <label for="unit">Çizim birimi
+          <select id="unit"><option value="0.001">Milimetre</option><option value="0.01">Santimetre</option><option value="1">Metre</option></select></label>
+        <label for="hc">Kablo yüksekliği (m), tavan ya da tava seviyesi
+          <input id="hc" type="number" step="0.1" min="0" value="3"></label>
+        <label for="hd">Cihaz yüksekliği (m), priz, anahtar, dedektör
+          <input id="hd" type="number" step="0.1" min="0" value="2.8"></label>
+        <label for="zx">3B yükseklik çarpanı (büyük planlarda yüksekliği belirginleştirir)
+          <input id="zx" type="number" step="1" min="1" max="20" value="1"></label>
+        <label for="hw">Duvar yüksekliği (m), 3B'de duvarların yükseltileceği seviye
+          <input id="hw" type="number" step="0.1" min="0" value="3"></label>
+        <label class="chk" for="showwl"><input id="showwl" type="checkbox" checked> Duvarları 3B'de yükselt</label>
+        <label class="chk" for="showbg"><input id="showbg" type="checkbox" checked> Mimari planı göster</label>
+        <label class="chk" for="showtx"><input id="showtx" type="checkbox" checked> Yazıları göster (2B)</label>
+        <label class="chk" for="solo"><input id="solo" type="checkbox"> Yalnızca seçili hattı göster</label>
+        <div class="hint" style="padding:0">Uzunluk tahmini: plandaki kablo çizgilerinin boyu ile her cihaz için kablo ve cihaz yüksekliği arasındaki iniş ve çıkış toplanır. Kesin metraj değildir.</div>
+      </div>
+    </section>
+  </aside>
+  <div id="stage">
+    <canvas id="gl"></canvas><canvas id="ov"></canvas>
+    <div id="chip">Örnek plan. Kendi DWG ya da DXF dosyanızı açın.</div>
+    <div id="card">
+      <button class="x" id="cx" type="button" aria-label="Kapat">×</button>
+      <h2 id="cn"></h2>
+      <div id="cp"></div>
+      <dl>
+        <dt>Plandaki kablo</dt><dd id="c1"></dd>
+        <dt>İniş ve çıkışlar</dt><dd id="c2"></dd>
+        <dt class="tot">Tahmini toplam</dt><dd class="tot" id="c3"></dd>
+      </dl>
+      <div class="dev" id="cd"></div>
+      <div class="row"><button class="btn" id="cz" type="button">Yakınlaş</button><button class="btn" id="cs" type="button">Tek göster</button><button class="btn primary" id="cg" type="button">Hattı gez</button></div>
+    </div>
+    <div id="tour">
+      <div id="tbarw"><div id="tbar"></div></div>
+      <div class="trow"><span id="tp"></span>
+        <select id="tspeed" aria-label="Hız"><option value="1">Çok yavaş</option><option value="2.5" selected>Yavaş</option><option value="6">Normal</option><option value="15">Hızlı</option></select>
+        <button class="btn" id="tplay" type="button">Duraklat</button><button class="btn" id="tstop" type="button">Bitir</button></div>
+    </div>
+    <div id="help">Sürükle: kaydır (3B'de döndür) · Tekerlek ya da iki parmak: yakınlaş · Shift+sürükle: 3B'de kaydır · Hatta dokun: seç</div>
+    <div id="busy"><div id="busyt">Dosya okunuyor…</div><button class="btn" id="busyok" type="button">Tamam</button></div>
+  </div>
+</main>
+<script>
+// Minimal DWG reader (R2004 / R2010 / R2013 / R2018 container) - browser + node
+(function (root) {
+  'use strict';
+
+  function u32(b, o) { return (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0; }
+  function i32(b, o) { return (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)); }
+  function u64(b, o) { return u32(b, o) + u32(b, o + 4) * 4294967296; }
+
+  // ---------- R2004 decompression ----------
+  function decompress(src, sp, send, dst, dp, dend) {
+    var op = 0, lit, cb, co, i, b, start = dp;
+    function litLen() {
+      var total = 0, x = src[sp++];
+      op = 0;
+      if (x >= 1 && x <= 0x0F) return x + 3;
+      if (x === 0) {
+        total = 0x0F;
+        while ((x = src[sp++]) === 0 && sp < send) total += 0xFF;
+        return total + x + 3;
+      }
+      if (x & 0xF0) op = x;
+      return 0;
+    }
+    function longOff() {
+      var total = 0, x = src[sp++];
+      if (x === 0) { total = 0xFF; while ((x = src[sp++]) === 0 && sp < send) total += 0xFF; }
+      return total + x;
+    }
+    function twoByte() {
+      var f = src[sp++], s = src[sp++];
+      co = (f >> 2) | (s << 6);
+      return f & 3;
+    }
+    lit = litLen();
+    for (i = 0; i < lit && dp < dend; i++) dst[dp++] = src[sp++];
+    while (sp < send && dp < dend) {
+      if (op === 0) op = src[sp++];
+      if (op >= 0x40) {
+        cb = ((op & 0xF0) >> 4) - 1;
+        b = src[sp++];
+        co = (b << 2) | ((op & 0x0C) >> 2);
+        if (op & 3) { lit = op & 3; op = 0; } else lit = litLen();
+      } else if (op >= 0x21 && op <= 0x3F) {
+        cb = op - 0x1E;
+        lit = twoByte();
+        if (lit !== 0) op = 0; else lit = litLen();
+      } else if (op === 0x20) {
+        cb = longOff() + 0x21;
+        lit = twoByte();
+        if (lit !== 0) op = 0; else lit = litLen();
+      } else if (op >= 0x12 && op <= 0x1F) {
+        cb = (op & 0x0F) + 2;
+        lit = twoByte(); co += 0x3FFF;
+        if (lit !== 0) op = 0; else lit = litLen();
+      } else if (op === 0x10) {
+        cb = longOff() + 9;
+        lit = twoByte(); co += 0x3FFF;
+        if (lit !== 0) op = 0; else lit = litLen();
+      } else if (op === 0x11) {
+        break;
+      } else {
+        throw new Error('decompress: bad opcode ' + op);
+      }
+      var from = dp - co - 1;
+      if (from < start) throw new Error('decompress: bad offset');
+      for (i = 0; i < cb && dp < dend; i++) dst[dp++] = dst[from++];
+      for (i = 0; i < lit && dp < dend; i++) dst[dp++] = src[sp++];
+    }
+    return dp - start;
+  }
+
+  function readSystemPage(buf, addr) {
+    var dsize = u32(buf, addr + 4), csize = u32(buf, addr + 8), ctype = u32(buf, addr + 12);
+    var out = new Uint8Array(dsize);
+    if (ctype === 2) decompress(buf, addr + 0x14, addr + 0x14 + csize, out, 0, dsize);
+    else out.set(buf.subarray(addr + 0x14, addr + 0x14 + dsize));
+    return out;
+  }
+
+  function readSections(buf) {
+    var ver = String.fromCharCode.apply(null, buf.subarray(0, 6));
+    var okv = { AC1018: 2004, AC1024: 2010, AC1027: 2013, AC1032: 2018 };
+    if (!okv[ver]) {
+      var e = new Error('UNSUPPORTED_VERSION:' + ver); e.version = ver; throw e;
+    }
+    var hdr = new Uint8Array(0x6C), seed = 1, i;
+    for (i = 0; i < 0x6C; i++) {
+      seed = (Math.imul(seed, 0x343fd) + 0x269ec3) | 0;
+      hdr[i] = buf[0x80 + i] ^ ((seed >> 16) & 0xFF);
+    }
+    var pageMapAddr = u64(hdr, 0x54) + 0x100;
+    var sectionMapId = u32(hdr, 0x5C);
+    var pm = readSystemPage(buf, pageMapAddr);
+    var pages = {}, addr = 0x100, p = 0;
+    while (p + 8 <= pm.length) {
+      var num = i32(pm, p), size = u32(pm, p + 4); p += 8;
+      if (num < 0) p += 16; else pages[num] = addr;
+      addr += size;
+    }
+    var sm = readSystemPage(buf, pages[sectionMapId]);
+    var nDesc = u32(sm, 0), sections = {};
+    p = 0x14;
+    for (i = 0; i < nDesc; i++) {
+      var s = {
+        size: u64(sm, p), pageCount: u32(sm, p + 8), maxSize: u32(sm, p + 12),
+        compressed: u32(sm, p + 0x14), id: u32(sm, p + 0x18), encrypted: u32(sm, p + 0x1C), pages: []
+      };
+      var nm = '';
+      for (var k = 0; k < 64 && sm[p + 0x20 + k]; k++) nm += String.fromCharCode(sm[p + 0x20 + k]);
+      s.name = nm; p += 0x60;
+      for (k = 0; k < s.pageCount; k++) {
+        s.pages.push({ num: u32(sm, p), dataSize: u32(sm, p + 4), start: u64(sm, p + 8) });
+        p += 16;
+      }
+      sections[nm] = s;
+    }
+    function load(name) {
+      var s = sections[name]; if (!s) return null;
+      var out = new Uint8Array(s.pageCount ? Math.max(s.size, s.pages[s.pages.length - 1].start + s.maxSize) : 0);
+      for (var j = 0; j < s.pages.length; j++) {
+        var pg = s.pages[j], a = pages[pg.num];
+        if (a === undefined) continue;
+        var h = new Uint8Array(32), mask = (0x4164536b ^ a) >>> 0;
+        for (var q = 0; q < 32; q += 4) {
+          var w = (u32(buf, a + q) ^ mask) >>> 0;
+          h[q] = w & 255; h[q + 1] = (w >>> 8) & 255; h[q + 2] = (w >>> 16) & 255; h[q + 3] = w >>> 24;
+        }
+        var csize = u32(h, 8), start = u32(h, 0x10);
+        if (s.compressed === 2) decompress(buf, a + 32, a + 32 + csize, out, start, Math.min(out.length, start + s.maxSize));
+        else out.set(buf.subarray(a + 32, a + 32 + Math.min(csize, s.maxSize)), start);
+      }
+      return out.subarray(0, s.size);
+    }
+    return { version: okv[ver], sections: sections, load: load };
+  }
+
+  // ---------- bit reader ----------
+  var f64buf = new DataView(new ArrayBuffer(8));
+  function Bits(b, bitpos) { this.b = b; this.p = bitpos || 0; }
+  Bits.prototype = {
+    B: function () { var v = (this.b[this.p >> 3] >> (7 - (this.p & 7))) & 1; this.p++; return v; },
+    BB: function () { return (this.B() << 1) | this.B(); },
+    bits: function (n) { var v = 0; for (var i = 0; i < n; i++) v = (v << 1) | this.B(); return v; },
+    RC: function () {
+      var i = this.p >> 3, s = this.p & 7; this.p += 8;
+      if (s === 0) return this.b[i];
+      return ((this.b[i] << s) | (this.b[i + 1] >> (8 - s))) & 0xFF;
+    },
+    RS: function () { var a = this.RC(); return a | (this.RC() << 8); },
+    RL: function () { var a = this.RS(); return (a | (this.RS() << 16)) >>> 0; },
+    RD: function () { for (var i = 0; i < 8; i++) f64buf.setUint8(i, this.RC()); return f64buf.getFloat64(0, true); },
+    BS: function () { var c = this.BB(); return c === 0 ? this.RS() : c === 1 ? this.RC() : c === 2 ? 0 : 256; },
+    BL: function () { var c = this.BB(); return c === 0 ? this.RL() : c === 1 ? this.RC() : 0; },
+    BLL: function () { var n = this.bits(3), v = 0, m = 1; for (var i = 0; i < n; i++) { v += this.RC() * m; m *= 256; } return v; },
+    BD: function () { var c = this.BB(); return c === 0 ? this.RD() : c === 1 ? 1.0 : 0.0; },
+    DD: function (def) {
+      var c = this.BB(), i;
+      if (c === 0) return def;
+      if (c === 3) return this.RD();
+      f64buf.setFloat64(0, def, true);
+      if (c === 2) { f64buf.setUint8(4, this.RC()); f64buf.setUint8(5, this.RC()); }
+      for (i = 0; i < 4; i++) f64buf.setUint8(i, this.RC());
+      return f64buf.getFloat64(0, true);
+    },
+    BT: function () { return this.B() ? 0 : this.BD(); },
+    BE: function () { if (this.B()) return [0, 0, 1]; return [this.BD(), this.BD(), this.BD()]; },
+    BD3: function () { return [this.BD(), this.BD(), this.BD()]; },
+    RD2: function () { return [this.RD(), this.RD()]; },
+    H: function (ref) {
+      var code = this.bits(4), n = this.bits(4), v = 0;
+      for (var i = 0; i < n; i++) v = v * 256 + this.RC();
+      if (ref !== undefined) {
+        if (code === 6) return ref + 1;
+        if (code === 8) return ref - 1;
+        if (code === 0xA) return ref + v;
+        if (code === 0xC) return ref - v;
+      }
+      return v;
+    },
+    TU: function () {
+      var n = this.BS(), s = '';
+      for (var i = 0; i < n; i++) { var c = this.RS(); if (c) s += String.fromCharCode(c); }
+      return s;
+    },
+    TV8: function () { // pre-2007 text (codepage; treat as latin/1254)
+      var n = this.BS(), s = '';
+      for (var i = 0; i < n; i++) { var c = this.RC(); if (c) s += CP1254[c] || String.fromCharCode(c); }
+      return s;
+    }
+  };
+  var CP1254 = { 0xD0: 'Ğ', 0xDD: 'İ', 0xDE: 'Ş', 0xF0: 'ğ', 0xFD: 'ı', 0xFE: 'ş' };
+
+  // ---------- object parsing ----------
+  function parse(arrayBuffer, opts) {
+    opts = opts || {};
+    var buf = arrayBuffer instanceof Uint8Array ? arrayBuffer : new Uint8Array(arrayBuffer);
+    var S = readSections(buf), V = S.version;
+    var objs = S.load('AcDb:AcDbObjects'), hs = S.load('AcDb:Handles');
+    if (!objs || !hs) throw new Error('Dosyada nesne bölümü bulunamadı');
+
+    // object map
+    var map = [], p = 0;
+    while (p + 2 <= hs.length) {
+      var ssize = (hs[p] << 8) | hs[p + 1];
+      if (ssize <= 2) break;
+      var end = p + ssize, q = p + 2, handle = 0, loc = 0;
+      while (q < end) {
+        var v = 0, sh = 0, c;
+        do { c = hs[q++]; v += (c & 0x7F) * Math.pow(2, sh); sh += 7; } while (c & 0x80);
+        handle += v;
+        v = 0; sh = 0;
+        for (;;) {
+          c = hs[q++];
+          if (c & 0x80) { v += (c & 0x7F) * Math.pow(2, sh); sh += 7; }
+          else { v += (c & 0x3F) * Math.pow(2, sh); if (c & 0x40) v = -v; break; }
+        }
+        loc += v;
+        map.push([handle, loc]);
+      }
+      p = end + 2;
+    }
+
+    var layers = {}, blocks = {}, ents = [], stats = {}, errors = 0;
+    var want = { 1: 1, 2: 1, 3: 1, 7: 1, 8: 1, 10: 1, 15: 1, 17: 1, 18: 1, 19: 1, 27: 1, 35: 1, 44: 1, 49: 1, 51: 1, 77: 1, 4: 1 };
+
+    for (var mi = 0; mi < map.length; mi++) {
+      var off = map[mi][1];
+      if (off <= 0 || off >= objs.length) continue;
+      try {
+        // MS size
+        var size = 0, sft = 0, o = off, w;
+        do { w = objs[o] | (objs[o + 1] << 8); o += 2; size |= (w & 0x7FFF) << sft; sft += 15; } while (w & 0x8000);
+        var hbits = 0;
+        if (V >= 2010) { sft = 0; var cc; do { cc = objs[o++]; hbits += (cc & 0x7F) * Math.pow(2, sft); sft += 7; } while (cc & 0x80); }
+        var base = o * 8, r = new Bits(objs, base), type, endBits;
+        if (V >= 2010) {
+          var tc = r.BB();
+          type = tc === 0 ? r.RC() : tc === 1 ? r.RC() + 0x1F0 : r.RS();
+          endBits = base + size * 8 - hbits;
+        } else {
+          type = r.BS();
+          endBits = base + r.RL();
+        }
+        stats[type] = (stats[type] || 0) + 1;
+        if (!want[type]) continue;
+        var isEnt = type !== 49 && type !== 51;
+        // string stream
+        var sr = null;
+        if (V >= 2010) { // (2007 uses another container, not supported here)
+          var sp = endBits - 1, t = new Bits(objs, sp);
+          if (t.B()) {
+            sp -= 16; t.p = sp; var sz = t.RS();
+            if (sz & 0x8000) { sp -= 16; t.p = sp; var hi = t.RS(); sz = (sz & 0x7FFF) | (hi << 15); }
+            sr = new Bits(objs, sp - sz);
+          }
+        }
+        var T = function () { return V >= 2010 ? (sr ? sr.TU() : '') : r.TV8(); };
+        var h = r.H();
+        // EED
+        var es;
+        while ((es = r.BS()) > 0) { r.H(); r.p += es * 8; if (r.p > endBits) throw new Error('eed'); }
+        var e = { h: h, t: type };
+        var hr = new Bits(objs, endBits);
+        if (isEnt) {
+          if (r.B()) { var gs = V >= 2010 ? r.BLL() : r.RL(); r.p += gs * 8; }
+          var entmode = r.BB(), nreact = r.BL(), xdicMissing = 0, nolinks = 1;
+          if (V >= 2004) xdicMissing = r.B();
+          if (V >= 2013) r.B();
+          var colorFlags = 0;
+          if (V >= 2004) {
+            var cw = r.BS(); colorFlags = cw >> 8; e.color = cw & 0x1FF;
+            if (colorFlags & 0x80) { var rgb = r.BL(); e.rgb = rgb & 0xFFFFFF; }
+            if (colorFlags & 0x20) r.BL();
+            if ((colorFlags & 0x40) && (colorFlags & 0x80)) { T(); }
+            if ((colorFlags & 0x41) === 0x41) { T(); }
+          }
+          r.BD();
+          var ltf = r.BB(), psf = r.BB(), mf = 0, shf = 0, vs = [0, 0, 0];
+          if (V >= 2007) { mf = r.BB(); shf = r.RC(); }
+          if (V >= 2010) { vs = [r.B(), r.B(), r.B()]; }
+          e.inv = r.BS() & 1; r.RC();
+          // handles
+          e.space = entmode;
+          if (entmode === 0) e.owner = hr.H(h);
+          for (var ri = 0; ri < nreact && ri < 1000; ri++) hr.H(h);
+          if (!xdicMissing) hr.H(h);
+          if (colorFlags & 0x40) hr.H(h);
+          e.layer = hr.H(h);
+          if (ltf === 3) hr.H(h);
+          if (mf === 3) hr.H(h);
+          if (shf === 3) hr.H(h);
+          if (psf === 3) hr.H(h);
+          if (vs[0]) hr.H(h); if (vs[1]) hr.H(h); if (vs[2]) hr.H(h);
+        } else {
+          var nr2 = r.BL(), xm = 0;
+          if (V >= 2004) xm = r.B();
+          if (V >= 2013) r.B();
+          e.name = T();
+          if (V >= 2007) r.BS(); else { r.B(); r.BS(); r.B(); }
+          if (type === 51) {
+            var lf = r.BS();
+            e.frozen = lf & 1; e.off = (lf & 2) ? 1 : 0;
+            var lc = r.BS(); e.color = lc & 0x1FF;
+            layers[h] = e; continue;
+          }
+          // BLOCK_HEADER
+          e.anon = r.B(); r.B(); e.xref = r.B(); r.B();
+          r.B();
+          if (V >= 2004) r.BL();
+          e.base = r.BD3();
+          blocks[h] = e; continue;
+        }
+        var i, n, x, y, z, df;
+        switch (type) {
+          case 19: // LINE
+            z = r.B(); x = r.RD(); var x2 = r.DD(x); y = r.RD(); var y2 = r.DD(y);
+            e.pts = [[x, y], [x2, y2]]; break;
+          case 77: // LWPOLYLINE
+            var fl = r.BS();
+            if (fl & 4) r.BD(); if (fl & 8) r.BD(); if (fl & 2) r.BD(); if (fl & 1) e.nz = r.BD3()[2];
+            n = r.BL(); var nb = (fl & 16) ? r.BL() : 0, nid = (V >= 2010 && (fl & 1024)) ? r.BL() : 0;
+            if (n > 200000) throw new Error('lw');
+            e.closed = (fl & 512) ? 1 : 0; e.pts = [];
+            x = r.RD(); y = r.RD(); e.pts.push([x, y]);
+            for (i = 1; i < n; i++) { x = r.DD(x); y = r.DD(y); e.pts.push([x, y]); }
+            if (nb) { e.bulge = []; for (i = 0; i < nb; i++) e.bulge.push(r.BD()); }
+            break;
+          case 1: case 2: case 3: // TEXT / ATTRIB / ATTDEF
+            df = r.RC(); if (!(df & 1)) r.RD();
+            e.p = r.RD2(); if (!(df & 2)) { r.DD(e.p[0]); r.DD(e.p[1]); }
+            r.BE(); r.BT(); if (!(df & 4)) r.RD();
+            e.rot = (df & 8) ? 0 : r.RD(); e.ht = r.RD(); if (!(df & 0x10)) r.RD();
+            e.text = T();
+            if (type !== 1) { /* tag is the 2nd string for attribs */ try { e.tag = T(); } catch (er) { } }
+            break;
+          case 44: // MTEXT
+            e.p = r.BD3(); r.BD3(); var xa = r.BD3(); r.BD(); if (V >= 2007) r.BD();
+            e.ht = r.BD(); e.rot = Math.atan2(xa[1], xa[0]); e.text = T(); e.mtext = 1; break;
+          case 7: case 8: // INSERT
+            e.p = r.BD3(); df = r.BB();
+            if (df === 0) { x = r.RD(); e.s = [x, r.DD(x), r.DD(x)]; }
+            else if (df === 1) { e.s = [1, r.DD(1), r.DD(1)]; }
+            else if (df === 2) { x = r.RD(); e.s = [x, x, x]; }
+            else e.s = [1, 1, 1];
+            e.rot = r.BD(); e.ext = r.BD3();
+            var ha = r.B(), na = 0; if (ha && V >= 2004) na = r.BL();
+            if (type === 8) { e.nc = r.BS(); e.nr = r.BS(); e.cs = r.BD(); e.rs = r.BD(); }
+            e.block = hr.H(h);
+            if (ha && na < 500) { e.attribs = []; for (i = 0; i < na; i++) e.attribs.push(hr.H(h)); }
+            break;
+          case 18: e.c = r.BD3(); e.r = r.BD(); r.BT(); e.nz = r.BE()[2]; break;
+          case 17: e.c = r.BD3(); e.r = r.BD(); r.BT(); e.nz = r.BE()[2]; e.a0 = r.BD(); e.a1 = r.BD(); break;
+          case 27: e.c = r.BD3(); break;
+          case 35: e.c = r.BD3(); e.maj = r.BD3(); r.BD3(); e.ratio = r.BD(); e.a0 = r.BD(); e.a1 = r.BD(); break;
+          case 15: // POLYLINE_2D
+            fl = r.BS(); r.BS(); r.BD(); r.BD(); r.BD(); r.BT(); r.BE();
+            n = V >= 2004 ? r.BL() : 0; e.closed = fl & 1; e.verts = [];
+            if (V >= 2004) { for (i = 0; i < n && i < 100000; i++) e.verts.push(hr.H(h)); }
+            else { e.first = hr.H(h); e.last = hr.H(h); }
+            break;
+          case 10: r.RC(); e.c = r.BD3(); break;
+          case 4: e.name = T(); break;
+        }
+        ents.push(e);
+      } catch (err) { errors++; }
+    }
+    return { version: V, layers: layers, blocks: blocks, ents: ents, stats: stats, errors: errors, count: map.length };
+  }
+
+  var api = { parse: parse, readSections: readSections };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.DWG = api;
+})(typeof window !== 'undefined' ? window : this);
+
+</script>
+<script>
+(function () {
+'use strict';
+var $ = function (id) { return document.getElementById(id); };
+var PAL = ['#ffb224', '#4cc9f0', '#ff6b9d', '#7bd88f', '#c792ea', '#ff8a4c', '#5eead4', '#f4e04d', '#8ab4ff', '#ff7a7a', '#b8e986', '#e0a3ff'];
+var CIRC_RE = /(YL\s*\d|LOOP|L[İIi]NYE|LNY|HAT(?!CH)|KORNA|S[İI]REN|BESLEME|KABLO|CABLE|POWER|SOCKET|LIGHTING|TES[İI]SAT|AYDINLATMA|PR[İI]Z|KUVVET|UPS|ZAYIF|SORT[İI])/i;
+var WALL_RE = /(WALL|DUVAR|BETONARME|CONCRETE|KOLON|COLUMN)/i, WALL_NOT = /(HIDDEN|HATCH|TARAMA|VIEW|TEFR|YARIM|DAMPER)/i;
+var NOT_RE = /(TEXT|TXT|YAZI|ANTET|TABLO|SEMBOL|NO$)/i;
+
+// ================= DXF =================
+function parseDXF(text) {
+  var L = text.split(/\r\n|\r|\n/), n = L.length - 1, i = 0;
+  var layers = {}, blocks = {}, ents = [], hid = 1;
+  function ent(pairs, owner) {
+    var ty = pairs[0][1], e = { h: hid++, space: owner ? 0 : 2, owner: owner, layer: '0' }, g = {}, k, c, v;
+    for (k = 1; k < pairs.length; k++) { c = pairs[k][0]; v = pairs[k][1]; if (!(c in g)) g[c] = v; }
+    var f = function (c, d) { return c in g ? parseFloat(g[c]) : (d || 0); };
+    e.layer = g[8] || '0'; if (g[67] === '1' && !owner) e.space = 1; e.inv = g[60] === '1' ? 1 : 0;
+    var d2r = Math.PI / 180;
+    if (ty === 'LINE') { e.t = 19; e.pts = [[f(10), f(20)], [f(11), f(21)]]; }
+    else if (ty === 'LWPOLYLINE') {
+      e.t = 77; e.pts = []; e.bulge = []; e.closed = (parseInt(g[70] || '0', 10) & 1); var has = 0;
+      for (k = 1; k < pairs.length; k++) {
+        c = pairs[k][0]; v = parseFloat(pairs[k][1]);
+        if (c === 10) { e.pts.push([v, 0]); e.bulge.push(0); }
+        else if (c === 20 && e.pts.length) e.pts[e.pts.length - 1][1] = v;
+        else if (c === 42 && e.pts.length) { e.bulge[e.bulge.length - 1] = v; has = 1; }
+      }
+      if (!has) delete e.bulge;
+    }
+    else if (ty === 'CIRCLE') { e.t = 18; e.c = [f(10), f(20)]; e.r = f(40); e.nz = f(230, 1); }
+    else if (ty === 'ARC') { e.t = 17; e.c = [f(10), f(20)]; e.r = f(40); e.a0 = f(50) * d2r; e.a1 = f(51) * d2r; e.nz = f(230, 1); }
+    else if (ty === 'ELLIPSE') { e.t = 35; e.c = [f(10), f(20)]; e.maj = [f(11), f(21)]; e.ratio = f(40, 1); e.a0 = f(41); e.a1 = f(42, Math.PI * 2); }
+    else if (ty === 'TEXT' || ty === 'ATTRIB') { e.t = 1; e.p = [f(10), f(20)]; e.ht = f(40); e.rot = f(50) * d2r; e.text = g[1] || ''; }
+    else if (ty === 'MTEXT') {
+      e.t = 44; e.p = [f(10), f(20)]; e.ht = f(40); e.rot = (11 in g) ? Math.atan2(f(21), f(11)) : f(50) * d2r; var s = '';
+      for (k = 1; k < pairs.length; k++) if (pairs[k][0] === 3) s += pairs[k][1];
+      e.text = s + (g[1] || '');
+    }
+    else if (ty === 'INSERT') { e.t = 7; e.p = [f(10), f(20)]; e.s = [f(41, 1), f(42, 1), 1]; e.rot = f(50) * d2r; e.ext = [0, 0, f(230, 1)]; e.block = g[2]; }
+    else return null;
+    return e;
+  }
+  function next() { // read one entity's pairs starting at a 0-code
+    var pairs = [[0, L[i + 1].trim()]]; i += 2;
+    while (i < n) { var c = parseInt(L[i], 10); if (c === 0) break; pairs.push([c, L[i + 1]]); i += 2; }
+    for (var k = 1; k < pairs.length; k++) { var cc = pairs[k][0]; if (cc < 10 || cc > 59) pairs[k][1] = pairs[k][1].trim(); }
+    return pairs;
+  }
+  var section = '', owner = null, poly = null;
+  while (i < n) {
+    var code = parseInt(L[i], 10);
+    if (code !== 0) { i += 2; continue; }
+    var p = next(), ty = p[0][1], g2 = '';
+    for (var k = 1; k < p.length; k++) if (p[k][0] === 2) { g2 = p[k][1]; break; }
+    if (ty === 'SECTION') { section = g2; continue; }
+    if (ty === 'ENDSEC') { section = ''; continue; }
+    if (section === 'TABLES' && ty === 'LAYER') {
+      var fl = 0, col = 7;
+      for (k = 1; k < p.length; k++) { if (p[k][0] === 70) fl = parseInt(p[k][1], 10); if (p[k][0] === 62) col = parseInt(p[k][1], 10); }
+      layers[g2] = { name: g2, frozen: fl & 1, off: col < 0 ? 1 : 0 }; continue;
+    }
+    if (section === 'BLOCKS') {
+      if (ty === 'BLOCK') {
+        var bx = 0, by = 0;
+        for (k = 1; k < p.length; k++) { if (p[k][0] === 10) bx = parseFloat(p[k][1]); if (p[k][0] === 20) by = parseFloat(p[k][1]); }
+        blocks[g2] = { name: g2, base: [bx, by, 0] }; owner = g2; continue;
+      }
+      if (ty === 'ENDBLK') { owner = null; continue; }
+    }
+    if (section === 'ENTITIES' || (section === 'BLOCKS' && owner)) {
+      var own = section === 'BLOCKS' ? owner : null;
+      if (ty === 'POLYLINE') {
+        poly = { h: hid++, t: 77, space: own ? 0 : 2, owner: own, layer: '0', pts: [], bulge: [], closed: 0 };
+        for (k = 1; k < p.length; k++) { if (p[k][0] === 8) poly.layer = p[k][1]; if (p[k][0] === 70) poly.closed = parseInt(p[k][1], 10) & 1; }
+        ents.push(poly); continue;
+      }
+      if (ty === 'VERTEX' && poly) {
+        var vx = 0, vy = 0, vb = 0;
+        for (k = 1; k < p.length; k++) { if (p[k][0] === 10) vx = parseFloat(p[k][1]); if (p[k][0] === 20) vy = parseFloat(p[k][1]); if (p[k][0] === 42) vb = parseFloat(p[k][1]); }
+        poly.pts.push([vx, vy]); poly.bulge.push(vb); continue;
+      }
+      if (ty === 'SEQEND') { poly = null; continue; }
+      var e = ent(p, own); if (e) ents.push(e);
+    }
+  }
+  for (var q = 0; q < ents.length; q++) if (!layers[ents[q].layer]) layers[ents[q].layer] = { name: ents[q].layer };
+  return { layers: layers, blocks: blocks, ents: ents };
+}
+
+// ================= demo =================
+function demoData() {
+  var layers = {}, blocks = {}, ents = [], h = 1;
+  ['DUVAR', 'PANO', 'LİNYE A1 AYDINLATMA', 'LİNYE A2 PRİZ', 'LİNYE A3 PRİZ', 'LİNYE A12 KORİDOR'].forEach(function (n) { layers[n] = { name: n }; });
+  function line(l, a) { ents.push({ h: h++, t: 77, space: 2, layer: l, pts: a }); }
+  function txt(l, x, y, s, ht) { ents.push({ h: h++, t: 1, space: 2, layer: l, p: [x, y], ht: ht || 0.22, rot: 0, text: s }); }
+  blocks.PRIZ = { name: 'PRİZ', base: [0, 0, 0] };
+  ents.push({ h: h++, t: 17, space: 0, owner: 'PRIZ', layer: '0', c: [0, 0], r: 0.14, a0: 0, a1: Math.PI });
+  ents.push({ h: h++, t: 19, space: 0, owner: 'PRIZ', layer: '0', pts: [[-0.14, 0], [0.14, 0]] });
+  blocks.ARM = { name: 'ARMATÜR', base: [0, 0, 0] };
+  ents.push({ h: h++, t: 18, space: 0, owner: 'ARM', layer: '0', c: [0, 0], r: 0.16 });
+  ents.push({ h: h++, t: 19, space: 0, owner: 'ARM', layer: '0', pts: [[-0.11, -0.11], [0.11, 0.11]] });
+  ents.push({ h: h++, t: 19, space: 0, owner: 'ARM', layer: '0', pts: [[-0.11, 0.11], [0.11, -0.11]] });
+  function dev(l, b, x, y) { ents.push({ h: h++, t: 7, space: 2, layer: l, p: [x, y], s: [1, 1, 1], rot: 0, block: b }); }
+  // walls: 3 rooms + corridor + far room
+  line('DUVAR', [[0, 0], [18, 0], [18, 10], [0, 10], [0, 0]]);
+  line('DUVAR', [[0, 4], [5.2, 4]]); line('DUVAR', [[6.2, 4], [11.2, 4]]); line('DUVAR', [[12.2, 4], [18, 4]]);
+  line('DUVAR', [[0, 6], [3, 6]]); line('DUVAR', [[4, 6], [13, 6]]); line('DUVAR', [[14, 6], [18, 6]]);
+  line('DUVAR', [[6, 0], [6, 4]]); line('DUVAR', [[12, 0], [12, 4]]); line('DUVAR', [[9, 6], [9, 10]]);
+  txt('DUVAR', 2.2, 1.8, 'OFİS 1'); txt('DUVAR', 8.2, 1.8, 'OFİS 2'); txt('DUVAR', 14.2, 1.8, 'ARŞİV');
+  txt('DUVAR', 7.6, 4.85, 'KORİDOR'); txt('DUVAR', 3.6, 8, 'TOPLANTI'); txt('DUVAR', 12.6, 8, 'DEPO');
+  line('PANO', [[0.15, 4.6], [0.45, 4.6], [0.45, 5.4], [0.15, 5.4], [0.15, 4.6]]); txt('PANO', 0.55, 5.5, 'PANO', 0.18);
+  var a = 'LİNYE A1 AYDINLATMA';
+  line(a, [[0.45, 5.2], [3, 5.2], [3, 2], [9, 2], [15, 2]]); line(a, [[3, 5.2], [4.5, 5.2], [4.5, 8], [13.5, 8]]);
+  [[3, 2], [9, 2], [15, 2], [4.5, 8], [13.5, 8]].forEach(function (p) { dev(a, 'ARM', p[0], p[1]); }); txt(a, 0.6, 5.28, 'A1', 0.16);
+  a = 'LİNYE A2 PRİZ';
+  line(a, [[0.45, 5.0], [1, 5.0], [1, 0.2], [5, 0.2]]); line(a, [[5, 0.2], [11, 0.2]]);
+  [[1, 0.2], [3, 0.2], [5, 0.2], [8, 0.2], [11, 0.2]].forEach(function (p) { dev(a, 'PRIZ', p[0], p[1]); }); txt(a, 0.6, 4.78, 'A2', 0.16);
+  a = 'LİNYE A3 PRİZ';
+  line(a, [[0.45, 5.35], [0.8, 5.35], [0.8, 9.8], [8.5, 9.8]]);
+  [[2, 9.8], [5, 9.8], [8.5, 9.8]].forEach(function (p) { dev(a, 'PRIZ', p[0], p[1]); }); txt(a, 0.6, 5.62, 'A3', 0.16);
+  a = 'LİNYE A12 KORİDOR';
+  line(a, [[0.45, 4.8], [13.5, 4.8], [13.5, 6.4], [17.5, 6.4], [17.5, 9.6]]);
+  [[13.5, 6.4], [17.5, 8], [17.5, 9.6]].forEach(function (p) { dev(a, 'PRIZ', p[0], p[1]); }); txt(a, 6, 4.5, 'A12', 0.16);
+  return { layers: layers, blocks: blocks, ents: ents };
+}
+
+// ================= model =================
+var DATA = null, M = null; // parsed data, built model
+var S = { mode: '2d', cx: 0, cy: 0, zoom: 20, yaw: -0.5, pitch: 0.75, sel: null, unit: 0.001, hc: 3, hd: 2.8, hw: 3, tz: 0, walls: true, wallKeys: null, zx: 1, bg: true, tx: true, solo: false, circKeys: null };
+
+function Grow() { this.a = new Float32Array(1 << 16); this.n = 0; }
+Grow.prototype.push6 = function (x1, y1, z1, x2, y2, z2) {
+  if (this.n + 6 > this.a.length) { var b = new Float32Array(this.a.length * 2); b.set(this.a); this.a = b; }
+  var a = this.a, n = this.n; a[n] = x1; a[n + 1] = y1; a[n + 2] = z1; a[n + 3] = x2; a[n + 4] = y2; a[n + 5] = z2; this.n = n + 6;
+};
+
+function tess(e, byH) {
+  var out = [], i, n, c, r, a0, a1, sw, st, fx = e.nz < 0 ? -1 : 1, P;
+  switch (e.t) {
+    case 19: return e.pts;
+    case 77: case 15:
+      P = e.pts;
+      if (e.t === 15) { P = []; if (e.verts) for (i = 0; i < e.verts.length; i++) { var v = byH[e.verts[i]]; if (v && v.c) P.push(v.c); } }
+      if (!P || P.length < 2) return null;
+      n = P.length;
+      var m = e.closed ? n : n - 1;
+      out.push([P[0][0] * fx, P[0][1]]);
+      for (i = 0; i < m; i++) {
+        var p1 = P[i], p2 = P[(i + 1) % n], b = e.bulge ? e.bulge[i] : 0;
+        if (b && Math.abs(b) > 1e-6 && isFinite(b)) {
+          var k = (1 - b * b) / (4 * b), cx = (p1[0] + p2[0]) / 2 - (p2[1] - p1[1]) * k, cy = (p1[1] + p2[1]) / 2 + (p2[0] - p1[0]) * k;
+          r = Math.hypot(p1[0] - cx, p1[1] - cy); a0 = Math.atan2(p1[1] - cy, p1[0] - cx); sw = 4 * Math.atan(b);
+          st = Math.max(2, Math.ceil(Math.abs(sw) / 0.3));
+          for (var j = 1; j < st; j++) out.push([(cx + r * Math.cos(a0 + sw * j / st)) * fx, cy + r * Math.sin(a0 + sw * j / st)]);
+        }
+        out.push([p2[0] * fx, p2[1]]);
+      }
+      return out;
+    case 18: case 17:
+      c = e.c; r = e.r; a0 = e.t === 18 ? 0 : e.a0; a1 = e.t === 18 ? Math.PI * 2 : e.a1;
+      if (!(r > 0) || !isFinite(r)) return null;
+      sw = a1 - a0; while (sw <= 0) sw += Math.PI * 2;
+      st = Math.max(3, Math.ceil(sw / 0.35));
+      for (i = 0; i <= st; i++) out.push([(c[0] + r * Math.cos(a0 + sw * i / st)) * fx, c[1] + r * Math.sin(a0 + sw * i / st)]);
+      return out;
+    case 35:
+      c = e.c; var mx = e.maj[0], my = e.maj[1], q = e.ratio;
+      a0 = e.a0; a1 = e.a1; sw = a1 - a0; while (sw <= 0) sw += Math.PI * 2;
+      st = Math.max(6, Math.ceil(sw / 0.3));
+      for (i = 0; i <= st; i++) { var t = a0 + sw * i / st; out.push([c[0] + mx * Math.cos(t) - my * q * Math.sin(t), c[1] + my * Math.cos(t) + mx * q * Math.sin(t)]); }
+      return out;
+  }
+  return null;
+}
+function insM(e, blk, P) {
+  var cr = Math.cos(e.rot), sr = Math.sin(e.rot), sx = e.s[0], sy = e.s[1], bx = blk.base ? blk.base[0] : 0, by = blk.base ? blk.base[1] : 0;
+  var a = cr * sx, b = sr * sx, c = -sr * sy, d = cr * sy, tx = e.p[0], ty = e.p[1];
+  if (e.ext && e.ext[2] < 0) { a = -a; c = -c; tx = -tx; }
+  var x = tx - (a * bx + c * by), y = ty - (b * bx + d * by);
+  return [P[0] * a + P[2] * b, P[1] * a + P[3] * b, P[0] * c + P[2] * d, P[1] * c + P[3] * d, P[0] * x + P[2] * y + P[4], P[1] * x + P[3] * y + P[5]];
+}
+function cleanText(s) {
+  return s.replace(/\\P/g, ' ').replace(/\\[A-Za-z][^;\\{}]*;/g, '').replace(/[{}]/g, '').replace(/%%[cdpuoCDPUO]/g, '').trim();
+}
+
+function build() {
+  var d = DATA, ents = d.ents, i, e;
+  var byH = {}, kids = {}, ms = [];
+  for (i = 0; i < ents.length; i++) {
+    e = ents[i]; byH[e.h] = e;
+    if (e.space === 2) ms.push(e);
+    else if (e.space === 0 && e.owner !== undefined) (kids[e.owner] || (kids[e.owner] = [])).push(e);
+  }
+  var hidden = function (k) { var l = d.layers[k]; return l && (l.off || l.frozen); };
+  // layer stats in model space
+  var LS = {}, hts = [];
+  for (i = 0; i < ms.length; i++) {
+    e = ms[i]; var l = LS[e.layer] || (LS[e.layer] = { key: e.layer, name: (d.layers[e.layer] || {}).name || String(e.layer), lines: 0, ins: 0, n: 0 });
+    l.n++; if (e.t === 19 || e.t === 77 || e.t === 15) l.lines++; else if (e.t === 7) l.ins++;
+    if ((e.t === 1 || e.t === 44) && e.ht > 0 && hts.length < 5000) hts.push(e.ht);
+  }
+  for (i = 0; i < ents.length; i++) {
+    e = ents[i]; if (e.space !== 0 || !(e.t === 19 || e.t === 77 || e.t === 15)) continue;
+    var ln = LS[e.layer] || (LS[e.layer] = { key: e.layer, name: (d.layers[e.layer] || {}).name || String(e.layer), lines: 0, ins: 0, n: 0 }); ln.nest = (ln.nest || 0) + 1;
+  }
+  if (!S.wallKeys) { S.wallKeys = {}; for (var wk in LS) if (WALL_RE.test(LS[wk].name) && !WALL_NOT.test(LS[wk].name) && !hidden(wk)) S.wallKeys[wk] = 1; }
+  // origin = median of sample points
+  var xs = [], ys = [];
+  for (i = 0; i < ms.length; i++) { e = ms[i]; var pt = e.pts ? e.pts[0] : (e.p || e.c); if (pt && isFinite(pt[0]) && isFinite(pt[1]) && Math.abs(pt[0]) < 1e12) { xs.push(pt[0]); ys.push(pt[1]); } }
+  xs.sort(function (a, b) { return a - b; }); ys.sort(function (a, b) { return a - b; });
+  var ox = xs.length ? xs[xs.length >> 1] : 0, oy = ys.length ? ys[ys.length >> 1] : 0;
+  var span = xs.length ? Math.max(xs[Math.floor(xs.length * 0.97)] - xs[Math.floor(xs.length * 0.03)], ys[Math.floor(ys.length * 0.97)] - ys[Math.floor(ys.length * 0.03)]) : 1;
+  var LIM = Math.max(span * 30, 1);
+  if (S.unitAuto) {
+    hts.sort(function (a, b) { return a - b; }); var mh = hts.length ? hts[hts.length >> 1] : 0;
+    S.unit = mh ? (mh > 40 ? 0.001 : mh > 4 ? 0.01 : 1) : (span > 30000 ? 0.001 : span > 300 ? 0.01 : 1);
+    S.unitAuto = false;
+  }
+  if (!S.circKeys) {
+    S.circKeys = {};
+    for (var k in LS) if (LS[k].lines > 0 && CIRC_RE.test(LS[k].name) && !NOT_RE.test(LS[k].name) && !hidden(k)) S.circKeys[k] = 1;
+  }
+  var bg = new Grow(), cb = new Grow(), wt = new Grow(), wl = new Grow(), texts = [], circ = {}, order = [];
+  var ok = function (x, y) { return isFinite(x) && isFinite(y) && Math.abs(x) < LIM && Math.abs(y) < LIM; };
+  var TOL = 0.02 / S.unit;
+  function emitPoly(P, T, sink, z, rec) {
+    if (!P) return;
+    var x0 = T[0] * P[0][0] + T[2] * P[0][1] + T[4] - ox, y0 = T[1] * P[0][0] + T[3] * P[0][1] + T[5] - oy, x1, y1, any = 0, last = P.length - 1;
+    for (var j = 1; j <= last; j++) {
+      x1 = T[0] * P[j][0] + T[2] * P[j][1] + T[4] - ox; y1 = T[1] * P[j][0] + T[3] * P[j][1] + T[5] - oy;
+      if (z === 0 && Math.abs(x1 - x0) < TOL && Math.abs(y1 - y0) < TOL && (j < last || !any)) continue;
+      any = 1;
+      if (sink === wt) { if (ok(x0, y0) && ok(x1, y1)) { wt.push6(x0, y0, 0, x1, y1, 0); wt.push6(x1, y1, 3, x0, y0, 0); wt.push6(x1, y1, 3, x0, y0, 3); wl.push6(x0, y0, 3, x1, y1, 3); wl.push6(x0, y0, 0, x0, y0, 3); } x0 = x1; y0 = y1; continue; }
+      if (ok(x0, y0) && ok(x1, y1)) { sink.push6(x0, y0, z, x1, y1, z); if (rec) { rec.cable.push(x0, y0, x1, y1); rec.len += Math.hypot(x1 - x0, y1 - y0); } }
+      x0 = x1; y0 = y1;
+    }
+  }
+  function addText(e2, T) {
+    if (texts.length > 120000 || !e2.text) return;
+    var s = e2.t === 44 ? cleanText(e2.text) : e2.text; if (!s || s.length > 80) return;
+    var x = T[0] * e2.p[0] + T[2] * e2.p[1] + T[4] - ox, y = T[1] * e2.p[0] + T[3] * e2.p[1] + T[5] - oy;
+    if (!ok(x, y)) return;
+    var sc = Math.hypot(T[0], T[1]);
+    texts.push({ x: x, y: y, h: e2.ht * sc, r: e2.rot + Math.atan2(T[1], T[0]), s: s, top: e2.t === 44 });
+  }
+  function walk(list, T, sink, z, depth) {
+    for (var j = 0; j < list.length; j++) {
+      var c = list[j];
+      if (c.inv || hidden(c.layer)) continue;
+      if (c.t === 7 || c.t === 8) {
+        var blk = d.blocks[c.block]; if (!blk || depth > 7 || blk.xref) continue;
+        var ch = kids[c.block]; if (ch) walk(ch, insM(c, blk, T), sink, z, depth + 1);
+      } else if (c.t === 1 || c.t === 44) { if (z === 0) addText(c, T); }
+      else if (c.t !== 2 && c.t !== 3 && c.t !== 10) { var tp = tess(c, byH); emitPoly(tp, T, sink, z, null); if (z === 0 && S.wallKeys[c.layer] && (c.t === 19 || c.t === 77 || c.t === 15)) emitPoly(tp, T, wt, 0, null); }
+    }
+  }
+  var I = [1, 0, 0, 1, 0, 0], ci = 0;
+  // background
+  for (i = 0; i < ms.length; i++) {
+    e = ms[i];
+    if (S.circKeys[e.layer] || e.inv || hidden(e.layer)) continue;
+    if (e.t === 7 || e.t === 8) {
+      walk([e], I, bg, 0, 0);
+      if (e.attribs) for (var ai = 0; ai < e.attribs.length; ai++) { var at = byH[e.attribs[ai]]; if (at && at.p && at.text && !at.inv) addText(at, I); }
+    } else if (e.t === 1 || e.t === 44) addText(e, I);
+    else if (e.t !== 2 && e.t !== 3 && e.t !== 10) { var tq = tess(e, byH); emitPoly(tq, I, bg, 0, null); if (S.wallKeys[e.layer] && (e.t === 19 || e.t === 77 || e.t === 15)) emitPoly(tq, I, wt, 0, null); }
+  }
+  // circuits
+  var net = null; try { net = network(ms, d, byH, kids, LS, S.circKeys, S.unit); } catch (err) { net = null; }
+  function posts(c) {
+    c.pstart = cb.n / 3; var seen = {}, ca = c.cable;
+    for (var j = 0; j < ca.length; j += 2) { var pk = Math.round(ca[j] / TOL) + '_' + Math.round(ca[j + 1] / TOL); if (!seen[pk]) { seen[pk] = 1; cb.push6(ca[j], ca[j + 1], 0, ca[j], ca[j + 1], 1); } }
+    c.pcount = cb.n / 3 - c.pstart;
+  }
+  if (net) net.circuits.forEach(function (nc, ni) {
+    var c = { key: 'net:' + ni + ':' + nc.name, name: nc.name, sub: nc.sub, net: 1, rest: nc.rest, color: nc.rest ? '#7f8ea6' : PAL[ci++ % PAL.length], cable: [], len: nc.len, devs: [], start: cb.n / 3, count: 0, anchor: null };
+    for (var j = 0; j < nc.segs.length; j += 4) { var x1 = nc.segs[j] - ox, y1 = nc.segs[j + 1] - oy, x2 = nc.segs[j + 2] - ox, y2 = nc.segs[j + 3] - oy; if (ok(x1, y1) && ok(x2, y2)) { cb.push6(x1, y1, 1, x2, y2, 1); c.cable.push(x1, y1, x2, y2); } }
+    nc.devs.forEach(function (dv) { var x = dv.x - ox, y = dv.y - oy; if (!ok(x, y)) return; c.devs.push({ x: x, y: y, n: dv.n }); walk([dv.e], I, cb, 2, 0); cb.push6(x, y, 1, x, y, 2); });
+    c.count = cb.n / 3 - c.start; posts(c);
+    if (nc.anchor) c.anchor = [nc.anchor[0] - ox, nc.anchor[1] - oy];
+    if (c.cable.length) { circ[c.key] = c; order.push(c); }
+  });
+  var keys = Object.keys(S.circKeys).filter(function (k) { return LS[k] && !(net && net.used[k] !== undefined); });
+  keys.sort(function (a, b) { return LS[a].name.localeCompare(LS[b].name, 'tr', { numeric: true }); });
+  var byLayer = {};
+  for (i = 0; i < ms.length; i++) { e = ms[i]; if (S.circKeys[e.layer]) (byLayer[e.layer] || (byLayer[e.layer] = [])).push(e); }
+  keys.forEach(function (k) {
+    var c = { key: k, name: LS[k].name, color: PAL[ci++ % PAL.length], cable: [], len: 0, devs: [], start: cb.n / 3, count: 0, anchor: null };
+    var list = byLayer[k] || [];
+    for (var j = 0; j < list.length; j++) {
+      var en = list[j]; if (en.inv) continue;
+      if (en.t === 19 || en.t === 77 || en.t === 15) emitPoly(tess(en, byH), I, cb, 1, c);
+      else if (en.t === 7 || en.t === 8) {
+        var x = en.p[0] - ox, y = en.p[1] - oy; if (!ok(x, y)) continue;
+        var blk = d.blocks[en.block];
+        c.devs.push({ x: x, y: y, n: blk ? blk.name : '?' });
+        walk([en], I, cb, 2, 0);
+        cb.push6(x, y, 1, x, y, 2);
+      } else if (en.t === 1 || en.t === 44) addText(en, I);
+      else if (en.t !== 2 && en.t !== 3 && en.t !== 10) emitPoly(tess(en, byH), I, cb, 1, null);
+    }
+    c.count = cb.n / 3 - c.start; posts(c);
+    if (c.cable.length || c.devs.length) { circ[k] = c; order.push(c); }
+  });
+  // anchors: a text that repeats the circuit name marks where it starts
+  var byName = {}; order.forEach(function (c) { if (!c.net) byName[c.name.toUpperCase()] = c; });
+  for (i = 0; i < texts.length; i++) { var cc = byName[texts[i].s.toUpperCase()]; if (cc && !cc.anchor) cc.anchor = [texts[i].x, texts[i].y]; }
+  order.forEach(function (c) {
+    var b = [1e30, 1e30, -1e30, -1e30], a = c.cable, j;
+    for (j = 0; j < a.length; j += 2) { if (a[j] < b[0]) b[0] = a[j]; if (a[j] > b[2]) b[2] = a[j]; if (a[j + 1] < b[1]) b[1] = a[j + 1]; if (a[j + 1] > b[3]) b[3] = a[j + 1]; }
+    for (j = 0; j < c.devs.length; j++) { var dv = c.devs[j]; if (dv.x < b[0]) b[0] = dv.x; if (dv.x > b[2]) b[2] = dv.x; if (dv.y < b[1]) b[1] = dv.y; if (dv.y > b[3]) b[3] = dv.y; }
+    c.bb = b; if (!c.anchor) c.anchor = a.length ? [a[0], a[1]] : [c.devs[0].x, c.devs[0].y];
+  });
+  // overall bounds (robust)
+  var bb;
+  if (order.length) {
+    bb = [1e30, 1e30, -1e30, -1e30];
+    order.forEach(function (c) { bb[0] = Math.min(bb[0], c.bb[0]); bb[1] = Math.min(bb[1], c.bb[1]); bb[2] = Math.max(bb[2], c.bb[2]); bb[3] = Math.max(bb[3], c.bb[3]); });
+  } else {
+    var sx = [], sy = [], stp = Math.max(3, Math.floor(bg.n / 3 / 20000) * 3);
+    for (i = 0; i < bg.n; i += stp) { sx.push(bg.a[i]); sy.push(bg.a[i + 1]); }
+    sx.sort(function (a, b) { return a - b; }); sy.sort(function (a, b) { return a - b; });
+    var lo = Math.floor(sx.length * 0.02), hi = Math.max(0, Math.ceil(sx.length * 0.98) - 1);
+    bb = sx.length ? [sx[lo], sy[lo], sx[hi], sy[hi]] : [-10, -10, 10, 10];
+  }
+  M = { bg: bg, cb: cb, wt: wt, wl: wl, texts: texts, circ: circ, order: order, layers: LS, bb: bb, layerList: Object.keys(LS).map(function (k) { return LS[k]; }) };
+  M.layerList.sort(function (a, b) { return (S.circKeys[b.key] ? 2 : S.wallKeys[b.key] ? 1 : 0) - (S.circKeys[a.key] ? 2 : S.wallKeys[a.key] ? 1 : 0) || a.name.localeCompare(b.name, 'tr', { numeric: true }); });
+  upload();
+}
+
+// ---- label based circuits: cable graph + circuit number labels + panels ----
+var LABEL_RE = /(CIRCUIT\s*N|L[İI]NYE\s*N|LNY\s*N|DEVRE\s*N|HAT\s*N)/i, PANEL_RE = /(PANEL|PANO)/i, CODE_RE = /^[A-Za-zÇĞİÖŞÜ]{0,3}[-.\/ ]?\d{1,4}[A-Za-z]?$/;
+function network(ms, d, byH, kids, LS, cableKeys, unit) {
+  var tol = 0.02 / unit, i, j, k, e, I = [1, 0, 0, 1, 0, 0];
+  var labKeys = {}, panKeys = {}, nl = 0, np = 0;
+  for (k in LS) { if (LABEL_RE.test(LS[k].name)) { labKeys[k] = 1; nl++; } else if (PANEL_RE.test(LS[k].name) && !cableKeys[k] && !NOT_RE.test(LS[k].name)) { panKeys[k] = 1; np++; } }
+  if (!nl || !np) return null;
+  var boxCache = {};
+  function blockBox(key, depth) {
+    if (key in boxCache) return boxCache[key];
+    var b = [1e30, 1e30, -1e30, -1e30], ch = kids[key] || [], any = 0; boxCache[key] = null;
+    for (var q = 0; q < ch.length; q++) {
+      var c = ch[q], P = null;
+      if (c.t === 7) { if (depth < 3) { var bx = entBox(c, depth + 1); if (bx) P = [[bx[0], bx[1]], [bx[2], bx[3]]]; } }
+      else if (c.t !== 1 && c.t !== 2 && c.t !== 3 && c.t !== 44) P = tess(c, byH);
+      if (!P) continue;
+      for (var w = 0; w < P.length; w++) { var x = P[w][0], y = P[w][1]; if (!isFinite(x) || !isFinite(y)) continue; any = 1; if (x < b[0]) b[0] = x; if (y < b[1]) b[1] = y; if (x > b[2]) b[2] = x; if (y > b[3]) b[3] = y; }
+    }
+    return (boxCache[key] = any ? b : null);
+  }
+  function entBox(en, depth) {
+    var blk = d.blocks[en.block]; if (!blk) return null;
+    var b = blockBox(en.block, depth || 0); if (!b) return null;
+    var T = insM(en, blk, I), o = [1e30, 1e30, -1e30, -1e30], cs = [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]];
+    for (var q = 0; q < 4; q++) { var x = T[0] * cs[q][0] + T[2] * cs[q][1] + T[4], y = T[1] * cs[q][0] + T[3] * cs[q][1] + T[5]; if (x < o[0]) o[0] = x; if (y < o[1]) o[1] = y; if (x > o[2]) o[2] = x; if (y > o[3]) o[3] = y; }
+    return o;
+  }
+  // cable segments, devices, labels, leaders, panels
+  var segs = [], devs = [], labels = [], leaders = [], panels = [], ptexts = [];
+  for (i = 0; i < ms.length; i++) {
+    e = ms[i]; if (e.inv) continue;
+    var isLine = e.t === 19 || e.t === 77 || e.t === 15, P;
+    if (cableKeys[e.layer]) {
+      if (isLine) { P = tess(e, byH); if (P) for (j = 1; j < P.length; j++) if (isFinite(P[j][0] + P[j][1] + P[j - 1][0] + P[j - 1][1])) segs.push({ a: P[j - 1], b: P[j], cut: [], layer: e.layer }); }
+      else if (e.t === 7) { var bx = entBox(e); if (bx && (bx[2] - bx[0]) * unit < 5 && (bx[3] - bx[1]) * unit < 5) devs.push({ e: e, box: bx, x: e.p[0], y: e.p[1], n: (d.blocks[e.block] || {}).name || '?' }); }
+    } else if (labKeys[e.layer]) {
+      if (e.t === 7) {
+        var val = '', at; if (e.attribs) for (j = 0; j < e.attribs.length && !val; j++) { at = byH[e.attribs[j]]; if (at && at.text) val = at.text.trim(); }
+        var lb = entBox(e); if (val) labels.push({ v: val, x: e.p[0], y: e.p[1], r: lb ? Math.hypot(lb[2] - lb[0], lb[3] - lb[1]) / 2 : 10 * tol });
+      } else if (e.t === 1 || e.t === 44) {
+        var s = e.t === 44 ? cleanText(e.text) : (e.text || '').trim();
+        if (CODE_RE.test(s)) { var wd = s.length * e.ht * 0.6; labels.push({ v: s, x: e.p[0] + Math.cos(e.rot || 0) * wd / 2, y: e.p[1] + Math.sin(e.rot || 0) * wd / 2 + e.ht / 2, r: Math.max(e.ht * 1.5, wd * 0.8) }); }
+      } else if (isLine) { P = tess(e, byH); if (P && P.length === 2) leaders.push({ a: P[0], b: P[1], used: 0 }); }
+    } else if (panKeys[e.layer]) {
+      if (e.t === 7) { var pb = entBox(e); if (pb) panels.push({ box: pb }); }
+      else if (isLine) { P = tess(e, byH); if (P && P.length >= 4) { var o = [1e30, 1e30, -1e30, -1e30]; for (j = 0; j < P.length; j++) { o[0] = Math.min(o[0], P[j][0]); o[1] = Math.min(o[1], P[j][1]); o[2] = Math.max(o[2], P[j][0]); o[3] = Math.max(o[3], P[j][1]); } panels.push({ box: o }); } }
+      else if ((e.t === 1 || e.t === 44) && e.text) { var ts = e.t === 44 ? cleanText(e.text) : e.text.trim(); if (ts) ptexts.push({ s: ts, x: e.p[0] + ts.length * e.ht * 0.3, y: e.p[1] + e.ht / 2 }); }
+    }
+  }
+  if (labels.length < 2 || !segs.length || segs.length > 8000 || !panels.length) return null;
+  function near(x, y, maxd) { // nearest point on a cable segment
+    var best = null, bd = maxd;
+    for (var q = 0; q < segs.length; q++) {
+      var s = segs[q], dx = s.b[0] - s.a[0], dy = s.b[1] - s.a[1], l2 = dx * dx + dy * dy, t = l2 ? ((x - s.a[0]) * dx + (y - s.a[1]) * dy) / l2 : 0;
+      t = t < 0 ? 0 : t > 1 ? 1 : t; var px = s.a[0] + t * dx, py = s.a[1] + t * dy, dd = Math.hypot(px - x, py - y);
+      if (dd < bd) { bd = dd; best = { x: px, y: py, s: q, t: t, d: dd }; }
+    }
+    return best;
+  }
+  // attach labels through their leader lines
+  labels.forEach(function (L) {
+    var bl = null, bd = L.r * 1.3 + tol, far = null;
+    leaders.forEach(function (ld) {
+      if (ld.used) return;
+      var da = Math.hypot(ld.a[0] - L.x, ld.a[1] - L.y), db = Math.hypot(ld.b[0] - L.x, ld.b[1] - L.y), m = Math.min(da, db);
+      if (m < bd) { bd = m; bl = ld; far = da < db ? ld.b : ld.a; }
+    });
+    if (bl) { var n = near(far[0], far[1], 3 * tol); if (n) { bl.used = 1; L.at = n; } }
+  });
+  var changed = true;
+  while (changed) { // labels standing in a row share the leader of their neighbour
+    changed = false;
+    labels.forEach(function (L) {
+      if (L.at) return; var b = null, bd = L.r * 2.2;
+      labels.forEach(function (o) { if (!o.at) return; var dd = Math.hypot(o.x - L.x, o.y - L.y); if (dd < bd) { bd = dd; b = o; } });
+      if (b) { L.at = b.at; changed = true; }
+    });
+  }
+  labels.forEach(function (L) { if (!L.at) { var n = near(L.x, L.y, L.r * 1.2); if (n) L.at = n; } });
+  var attached = labels.filter(function (L) { return L.at; });
+  if (attached.length < 2) return null;
+  attached.forEach(function (L) { if (L.at.t > 1e-6 && L.at.t < 1 - 1e-6) segs[L.at.s].cut.push(L.at.t); });
+  // T junctions
+  for (i = 0; i < segs.length; i++) {
+    var si = segs[i];
+    for (var en = 0; en < 2; en++) {
+      var p = en ? si.b : si.a;
+      for (j = 0; j < segs.length; j++) {
+        if (j === i) continue; var sj = segs[j];
+        if (p[0] < Math.min(sj.a[0], sj.b[0]) - tol || p[0] > Math.max(sj.a[0], sj.b[0]) + tol || p[1] < Math.min(sj.a[1], sj.b[1]) - tol || p[1] > Math.max(sj.a[1], sj.b[1]) + tol) continue;
+        var dx = sj.b[0] - sj.a[0], dy = sj.b[1] - sj.a[1], l2 = dx * dx + dy * dy; if (!l2) continue;
+        var t = ((p[0] - sj.a[0]) * dx + (p[1] - sj.a[1]) * dy) / l2; if (t <= 0 || t >= 1) continue;
+        if (Math.hypot(sj.a[0] + t * dx - p[0], sj.a[1] + t * dy - p[1]) < tol) sj.cut.push(t);
+      }
+    }
+  }
+  // graph
+  var ids = {}, N = [], adj = [], E = [];
+  function node(x, y) { var key = Math.round(x / tol) + '_' + Math.round(y / tol), id = ids[key]; if (id === undefined) { id = ids[key] = N.length; N.push({ x: x, y: y }); adj.push([]); } return id; }
+  function edge(a, b, len, draw, layer) { if (a === b) return; var id = E.length; E.push({ a: a, b: b, len: len, draw: draw, layer: layer }); adj[a].push(id); adj[b].push(id); }
+  segs.forEach(function (s) {
+    var ts = [0].concat(s.cut.sort(function (a, b) { return a - b; }), [1]), dx = s.b[0] - s.a[0], dy = s.b[1] - s.a[1], prev = node(s.a[0], s.a[1]), pt = 0;
+    for (var q = 1; q < ts.length; q++) { if (ts[q] - pt < 1e-9 && q < ts.length - 1) continue; var n = node(s.a[0] + ts[q] * dx, s.a[1] + ts[q] * dy); edge(prev, n, Math.hypot(N[n].x - N[prev].x, N[n].y - N[prev].y), 1, s.layer); prev = n; pt = ts[q]; }
+  });
+  var nCable = N.length;
+  devs.forEach(function (dv) {
+    var id = N.length; N.push({ x: dv.x, y: dv.y, dev: dv }); adj.push([]); dv.node = id;
+    for (var q = 0; q < nCable; q++) { var n = N[q]; if (n.x >= dv.box[0] - tol && n.x <= dv.box[2] + tol && n.y >= dv.box[1] - tol && n.y <= dv.box[3] + tol) edge(id, q, Math.hypot(n.x - dv.x, n.y - dv.y), 0, null); }
+  });
+  // panels: multi-source shortest paths
+  var dist = [], prevE = [], src = [], heap = [];
+  for (i = 0; i < N.length; i++) { dist.push(Infinity); prevE.push(-1); src.push(-1); }
+  function hpush(v) { heap.push(v); var c = heap.length - 1; while (c > 0) { var p = (c - 1) >> 1; if (heap[p][0] <= heap[c][0]) break; var t = heap[p]; heap[p] = heap[c]; heap[c] = t; c = p; } }
+  function hpop() { var top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; var c = 0; for (;;) { var l = c * 2 + 1, r = l + 1, m = c; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === c) break; var t = heap[m]; heap[m] = heap[c]; heap[c] = t; c = m; } } return top; }
+  var pt2 = 2.5 * tol, anyP = 0;
+  panels.forEach(function (pn, pi) {
+    var b = pn.box, best = null, bd = Infinity; pn.cx = (b[0] + b[2]) / 2; pn.cy = (b[1] + b[3]) / 2;
+    ptexts.forEach(function (t) { var ddx = Math.max(b[0] - t.x, 0, t.x - b[2]), ddy = Math.max(b[1] - t.y, 0, t.y - b[3]), dd = Math.hypot(ddx, ddy) + (/\d/.test(t.s) ? 0 : 20 * tol); if (dd < bd) { bd = dd; best = t; } });
+    pn.name = best && bd < 40 * tol ? best.s : 'Pano ' + (pi + 1);
+    for (var q = 0; q < nCable; q++) { var n = N[q]; if (n.x >= b[0] - pt2 && n.x <= b[2] + pt2 && n.y >= b[1] - pt2 && n.y <= b[3] + pt2 && dist[q] > 0) { dist[q] = 0; src[q] = pi; hpush([0, q]); anyP = 1; } }
+  });
+  if (!anyP) return null;
+  while (heap.length) {
+    var h = hpop(), u = h[1]; if (h[0] > dist[u]) continue;
+    for (j = 0; j < adj[u].length; j++) { var ed = E[adj[u][j]], v = ed.a === u ? ed.b : ed.a, nd = h[0] + ed.len; if (nd < dist[v]) { dist[v] = nd; prevE[v] = adj[u][j]; src[v] = src[u]; hpush([nd, v]); } }
+  }
+  // routes
+  var groups = {}, order = [], usedE = {};
+  attached.forEach(function (L) {
+    var a = node(L.at.x, L.at.y); if (a >= nCable || !isFinite(dist[a])) return;
+    var key = src[a] + '|' + L.v, g = groups[key]; if (!g) { g = groups[key] = { v: L.v, panel: panels[src[a]], es: {}, far: 0 }; order.push(g); }
+    var u = a, pe = prevE[a];
+    while (prevE[u] >= 0) { var ed = E[prevE[u]]; g.es[prevE[u]] = 1; u = ed.a === u ? ed.b : ed.a; }
+    g.end = u; if (dist[a] > g.far) g.far = dist[a];
+    var stack = [a], seen = {}; seen[a] = 1; // away from the panel, up to the next branching point
+    while (stack.length) {
+      var c = stack.pop();
+      for (var q = 0; q < adj[c].length; q++) {
+        var id = adj[c][q]; if (c === a && id === pe) continue; if (g.es[id]) continue;
+        var ee = E[id], o = ee.a === c ? ee.b : ee.a; if (seen[o]) continue;
+        if (dist[o] < dist[c] - 1e-6 && c !== a) continue;
+        g.es[id] = 1; seen[o] = 1;
+        if (N[o].dev || adj[o].length <= 2) stack.push(o);
+      }
+    }
+  });
+  var routed = order.filter(function (g) { return Object.keys(g.es).length; });
+  if (routed.length < 2) return null;
+  var out = [], usedLayers = {};
+  function pack(es, name, sub, anchor) {
+    var c = { name: name, sub: sub, segs: [], len: 0, devs: [], anchor: anchor }, dn = {};
+    es.forEach(function (id) {
+      var ed = E[id]; c.len += ed.len; if (ed.draw) { c.segs.push(N[ed.a].x, N[ed.a].y, N[ed.b].x, N[ed.b].y); usedLayers[ed.layer] = 1; }
+      [ed.a, ed.b].forEach(function (n) { if (N[n].dev && !dn[n]) { dn[n] = 1; c.devs.push(N[n].dev); } });
+    });
+    return c;
+  }
+  routed.sort(function (a, b) { return a.panel.name.localeCompare(b.panel.name, 'tr', { numeric: true }) || String(a.v).localeCompare(String(b.v), 'tr', { numeric: true }); });
+  routed.forEach(function (g) {
+    var ids2 = Object.keys(g.es).map(Number); ids2.forEach(function (id) { usedE[id] = 1; });
+    out.push(pack(ids2, (/^\d+$/.test(g.v) ? 'Linye ' : '') + g.v, g.panel.name, [N[g.end].x, N[g.end].y]));
+  });
+  var rest = []; for (i = 0; i < E.length; i++) if (!usedE[i] && usedLayers[E[i].layer] !== undefined || (!usedE[i] && !E[i].draw)) rest.push(i);
+  rest = rest.filter(function (id) { var ed = E[id]; return ed.draw || !(N[ed.a].dev && adj[ed.a].some(function (x) { return usedE[x]; })); });
+  if (rest.some(function (id) { return E[id].draw; })) { var rc = pack(rest, 'Etiketsiz hatlar', 'Linye numarası bulunamadı', null); rc.rest = 1; out.push(rc); }
+  return { circuits: out, used: usedLayers, labels: labels.length, attached: attached.length };
+}
+
+// ================= GL =================
+var cv = $('gl'), ov = $('ov'), gl = cv.getContext('webgl', { antialias: true, alpha: false }), o2 = ov.getContext('2d');
+var prog, bufBg, bufC, bufWT, bufWL, uWh, uM, uH, uOff, uCol, W = 1, H = 1, DPR = 1, MVP = new Float32Array(16);
+function initGL() {
+  if (!gl) return;
+  function sh(t, s) { var x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x); return x; }
+  prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, 'attribute vec3 a;uniform mat4 M;uniform vec4 H;uniform float Wh;uniform vec2 O;void main(){float z=a.z<0.5?0.0:(a.z<1.5?H.y:(a.z<2.5?H.z:Wh));vec4 p=M*vec4(a.x*H.x,a.y*H.x,z*H.w,1.0);p.xy+=O*p.w;gl_Position=p;}'));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, 'precision mediump float;uniform vec4 C;void main(){gl_FragColor=C;}'));
+  gl.bindAttribLocation(prog, 0, 'a'); gl.linkProgram(prog); gl.useProgram(prog);
+  uM = gl.getUniformLocation(prog, 'M'); uH = gl.getUniformLocation(prog, 'H'); uOff = gl.getUniformLocation(prog, 'O'); uCol = gl.getUniformLocation(prog, 'C');
+  bufBg = gl.createBuffer(); bufC = gl.createBuffer(); bufWT = gl.createBuffer(); bufWL = gl.createBuffer(); uWh = gl.getUniformLocation(prog, 'Wh');
+  gl.enableVertexAttribArray(0);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+}
+function upload() {
+  if (!gl) return;
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufBg); gl.bufferData(gl.ARRAY_BUFFER, M.bg.a.subarray(0, M.bg.n), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufC); gl.bufferData(gl.ARRAY_BUFFER, M.cb.a.subarray(0, M.cb.n), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufWT); gl.bufferData(gl.ARRAY_BUFFER, M.wt.a.subarray(0, M.wt.n), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufWL); gl.bufferData(gl.ARRAY_BUFFER, M.wl.a.subarray(0, M.wl.n), gl.STATIC_DRAW);
+}
+function resize() {
+  var r = $('stage').getBoundingClientRect(); DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.max(1, Math.round(r.width)); H = Math.max(1, Math.round(r.height));
+  cv.width = ov.width = W * DPR; cv.height = ov.height = H * DPR; draw();
+}
+function camera() {
+  var m = MVP, u = S.unit, tx = S.cx * u, ty = S.cy * u, i;
+  if (S.mode === '2d') {
+    for (i = 0; i < 16; i++) m[i] = 0;
+    m[0] = 2 * S.zoom / W; m[5] = 2 * S.zoom / H; m[10] = 0; m[15] = 1; m[12] = -tx * m[0]; m[13] = -ty * m[5];
+    return;
+  }
+  var fov = 0.7, D = H / (2 * S.zoom * Math.tan(fov / 2)), cp = Math.cos(S.pitch), sp = Math.sin(S.pitch);
+  var tz = S.tz * S.zx, ex = tx - Math.sin(S.yaw) * cp * D, ey = ty - Math.cos(S.yaw) * cp * D, ez = tz + sp * D;
+  var fx = tx - ex, fy = ty - ey, fz = tz - ez, fl = Math.hypot(fx, fy, fz); fx /= fl; fy /= fl; fz /= fl;
+  var rx = fy * 1 - fz * 0, ry = fz * 0 - fx * 1, rz = 0, rl = Math.hypot(rx, ry) || 1; rx /= rl; ry /= rl; // f × up(0,0,1)
+  var ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
+  var near = Math.max(D * 0.02, 0.05), far = D * 60, f = 1 / Math.tan(fov / 2), as = W / H;
+  var V = [rx, ux, -fx, 0, ry, uy, -fy, 0, rz, uz, -fz, 0, -(rx * ex + ry * ey + rz * ez), -(ux * ex + uy * ey + uz * ez), (fx * ex + fy * ey + fz * ez), 1];
+  var P = [f / as, 0, 0, 0, 0, f, 0, 0, 0, 0, (far + near) / (near - far), -1, 0, 0, 2 * far * near / (near - far), 0];
+  for (var c = 0; c < 4; c++) for (var r = 0; r < 4; r++) m[c * 4 + r] = P[r] * V[c * 4] + P[4 + r] * V[c * 4 + 1] + P[8 + r] * V[c * 4 + 2] + P[12 + r] * V[c * 4 + 3];
+}
+function proj(x, y, zm) { // raw x,y ; z in metres -> screen px (null if behind)
+  var m = MVP, u = S.unit, X = x * u, Y = y * u, Z = zm * S.zx;
+  var w = m[3] * X + m[7] * Y + m[11] * Z + m[15]; if (w <= 1e-6) return null;
+  return [((m[0] * X + m[4] * Y + m[8] * Z + m[12]) / w * 0.5 + 0.5) * W, (0.5 - (m[1] * X + m[5] * Y + m[9] * Z + m[13]) / w * 0.5) * H];
+}
+function rgb(hex, a) { var v = parseInt(hex.slice(1), 16); return [(v >> 16) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255, a]; }
+var raf = 0;
+function draw() { if (!raf) raf = requestAnimationFrame(function () { raf = 0; render(); }); }
+function render() {
+  if (!gl || !M) return;
+  camera();
+  gl.viewport(0, 0, cv.width, cv.height); gl.clearColor(0.059, 0.09, 0.141, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.uniformMatrix4fv(uM, false, MVP); gl.uniform4f(uH, S.unit, S.hc, S.hd, S.mode === '3d' ? S.zx : 0);
+  var px = 2 / (W * DPR), py = 2 / (H * DPR);
+  if (S.bg && M.bg.n) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufBg); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    gl.uniform2f(uOff, 0, 0); gl.uniform4f(uCol, 0.36, 0.44, 0.57, S.sel ? 0.5 : 0.75); gl.drawArrays(gl.LINES, 0, M.bg.n / 3);
+  }
+  gl.uniform1f(uWh, S.hw);
+  if (S.walls && S.mode === '3d' && M.wt.n) {
+    gl.uniform2f(uOff, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufWT); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0); gl.uniform4f(uCol, 0.42, 0.55, 0.78, 0.07); gl.drawArrays(gl.TRIANGLES, 0, M.wt.n / 3);
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufWL); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0); gl.uniform4f(uCol, 0.6, 0.72, 0.92, 0.3); gl.drawArrays(gl.LINES, 0, M.wl.n / 3);
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufC); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+  var passes = [[0, 0], [1, 0], [0, 1], [1, 1], [-1, 0], [0, -1], [-1, -1], [1, -1], [-1, 1]];
+  function dc(c, np, alpha) {
+    var col = rgb(c.color, alpha); gl.uniform4f(uCol, col[0], col[1], col[2], col[3]);
+    for (var p = 0; p < np; p++) { gl.uniform2f(uOff, passes[p][0] * px * DPR * 0.6, passes[p][1] * py * DPR * 0.6); gl.drawArrays(gl.LINES, c.start, c.count); }
+  }
+  var sel = S.sel && M.circ[S.sel];
+  for (var i = 0; i < M.order.length; i++) { var c = M.order[i]; if (c === sel) continue; if (S.solo && sel) continue; dc(c, sel ? 1 : 4, sel ? 0.3 : 1); }
+  if (sel) {
+    dc(sel, 9, 1);
+    if (S.mode === '3d' && sel.pcount) { var pc = rgb(sel.color, 0.4); gl.uniform4f(uCol, pc[0], pc[1], pc[2], pc[3]); gl.uniform2f(uOff, 0, 0); gl.drawArrays(gl.LINES, sel.pstart, sel.pcount); }
+  }
+  overlay(sel);
+}
+function overlay(sel) {
+  o2.setTransform(DPR, 0, 0, DPR, 0, 0); o2.clearRect(0, 0, W, H);
+  var u = S.unit, i, p;
+  if (S.tx && S.mode === '2d') {
+    var T = M.texts, n = 0, hw = W / 2 / S.zoom / u, hh = H / 2 / S.zoom / u, k = S.zoom * u;
+    o2.fillStyle = 'rgba(170,185,208,.85)'; o2.textBaseline = 'alphabetic';
+    for (i = 0; i < T.length && n < 700; i++) {
+      var t = T[i], ph = t.h * k; if (ph < 7 || ph > 160) continue;
+      var dx = t.x - S.cx, dy = t.y - S.cy; if (dx < -hw * 1.3 || dx > hw || dy < -hh * 1.2 || dy > hh * 1.2) continue;
+      n++; o2.save(); o2.translate(W / 2 + dx * k, H / 2 - dy * k); if (t.r) o2.rotate(-t.r);
+      o2.font = ph.toFixed(1) + 'px "IBM Plex Sans",sans-serif'; o2.fillText(t.s, 0, t.top ? ph : 0); o2.restore();
+    }
+  }
+  if (TOUR && sel) {
+    var tp = proj(TOUR.x, TOUR.y, S.hc);
+    if (tp) { o2.fillStyle = '#fff'; o2.strokeStyle = sel.color; o2.lineWidth = 4; o2.beginPath(); o2.arc(tp[0], tp[1], 8, 0, 6.3); o2.fill(); o2.stroke(); }
+  }
+  if (sel) {
+    o2.fillStyle = sel.color;
+    var zd = S.mode === '3d' ? S.hd : 0;
+    if (sel.devs.length < 4000) for (i = 0; i < sel.devs.length; i++) { p = proj(sel.devs[i].x, sel.devs[i].y, zd); if (p) { o2.beginPath(); o2.arc(p[0], p[1], 3, 0, 6.3); o2.fill(); } }
+    p = TOUR ? null : proj(sel.anchor[0], sel.anchor[1], S.mode === '3d' ? S.hc : 0);
+    if (p) {
+      var label = (sel.net && !sel.rest ? sel.sub + ' › ' : '') + sel.name + '  ' + fmt(total(sel)) + ' m';
+      o2.font = '600 13px "IBM Plex Sans",sans-serif'; var tw = o2.measureText(label).width + 16;
+      var y = Math.min(Math.max(p[1] - 30, 6), H - 30), cardW = (W > 700 && y < $('card').offsetHeight + 16) ? 290 : 0;
+      var x = Math.max(Math.min(p[0] + 10, W - tw - 6 - cardW), 6);
+      o2.strokeStyle = sel.color; o2.lineWidth = 2; o2.beginPath(); o2.moveTo(p[0], p[1]); o2.lineTo(x + 8, y + 24); o2.stroke();
+      o2.beginPath(); o2.arc(p[0], p[1], 6, 0, 6.3); o2.stroke();
+      o2.fillStyle = '#162134'; o2.fillRect(x, y, tw, 24); o2.strokeRect(x, y, tw, 24);
+      o2.fillStyle = '#e8edf5'; o2.textBaseline = 'middle'; o2.fillText(label, x + 8, y + 12.5);
+    }
+  }
+}
+
+// ================= numbers =================
+function fmt(v) { return v.toLocaleString('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+function horiz(c) { return c.len * S.unit; }
+function drops(c) { return (c.net ? (c.rest ? c.devs.length : c.devs.length + 1) : c.devs.length * 2) * Math.abs(S.hc - S.hd); }
+function total(c) { return horiz(c) + drops(c); }
+
+// ================= UI =================
+function fit(bb, pad) {
+  var u = S.unit, w = Math.max((bb[2] - bb[0]) * u, 1), h = Math.max((bb[3] - bb[1]) * u, 1);
+  S.cx = (bb[0] + bb[2]) / 2; S.cy = (bb[1] + bb[3]) / 2; S.zoom = Math.min(W / w, H / h) * (pad || 0.9);
+  if (!isFinite(S.zoom) || S.zoom <= 0) S.zoom = 10;
+  draw();
+}
+function lists() {
+  var q = $('q1').value.trim().toLocaleUpperCase('tr'), ul = $('circ'), tl = 0, td = 0, html = '';
+  M.order.forEach(function (c) {
+    tl += total(c); td += c.devs.length; var hay = (c.name + ' ' + (c.sub || '')).toLocaleUpperCase('tr');
+    if (q && hay.indexOf(q) < 0) return;
+    html += '<li data-k="' + esc(c.key) + '"' + (S.sel === c.key ? ' class="sel"' : '') + ' tabindex="0"><span class="sw" style="background:' + c.color + '"></span><span class="nm">' + esc(c.name) + '<small>' + (c.sub ? esc(c.sub) + ' · ' : '') + c.devs.length + ' cihaz</small></span><span class="len">' + fmt(total(c)) + ' m</span></li>';
+  });
+  ul.innerHTML = html; $('sN').textContent = M.order.length; $('sL').textContent = fmt(tl) + ' m'; $('sD').textContent = td;
+  $('nocirc').style.display = M.order.length ? 'none' : 'block';
+  var q2 = $('q2').value.trim().toLocaleUpperCase('tr'); html = '';
+  M.layerList.forEach(function (l) {
+    if (q2 && l.name.toLocaleUpperCase('tr').indexOf(q2) < 0) return;
+    html += '<li><span class="nm">' + esc(l.name) + '<small>' + (l.lines + (l.nest || 0)) + ' çizgi, ' + l.ins + ' blok</small></span><label><input type="checkbox" data-k="' + esc(l.key) + '" data-w="c"' + (S.circKeys[l.key] ? ' checked' : '') + '>Hat</label><label><input type="checkbox" data-k="' + esc(l.key) + '" data-w="w"' + (S.wallKeys[l.key] ? ' checked' : '') + '>Duvar</label></li>';
+  });
+  $('lay').innerHTML = html;
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function card() {
+  var c = S.sel && M.circ[S.sel], el = $('card');
+  if (!c) { el.style.display = 'none'; return; }
+  el.style.display = 'block'; el.style.borderLeftColor = c.color;
+  $('cn').textContent = c.name; $('c1').textContent = fmt(horiz(c)) + ' m'; $('c2').textContent = fmt(drops(c)) + ' m'; $('c3').textContent = fmt(total(c)) + ' m';
+  var cnt = {}; c.devs.forEach(function (d) { cnt[d.n] = (cnt[d.n] || 0) + 1; });
+  var parts = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).slice(0, 6).map(function (k) { return cnt[k] + ' × ' + (/^(A\$C|\*)/.test(k) ? 'adsız blok' : k); });
+  $('cp').textContent = c.sub || ''; $('cp').style.display = c.sub ? 'block' : 'none';
+  $('cd').textContent = c.devs.length ? 'Cihazlar: ' + parts.join(', ') : 'Bu hatta blok (cihaz) yok.';
+  $('cs').textContent = S.solo ? 'Tümünü göster' : 'Tek göster';
+}
+function select(k, zoomTo) {
+  if (k !== S.sel) stopTour();
+  S.sel = k; card(); lists();
+  if (k && zoomTo) fit(M.circ[k].bb, 0.8); else draw();
+}
+function refresh() { lists(); card(); draw(); }
+function rebuild(keepView) {
+  build(); if (S.sel && !M.circ[S.sel]) S.sel = null;
+  $('unit').value = String(S.unit);
+  if (!keepView) { if (S.zxAuto) { S.zx = 1; $('zx').value = S.zx; S.zxAuto = false; } fit(M.bb); }
+  refresh();
+}
+function busy(msg, err) { var b = $('busy'); b.style.display = msg ? 'flex' : 'none'; b.className = err ? 'err' : ''; $('busyt').textContent = msg || ''; }
+function load(data, name, demo) {
+  stopTour(); DATA = data; S.circKeys = null; S.wallKeys = null; S.sel = null; S.unitAuto = true; S.zxAuto = true; S.solo = false; $('solo').checked = false;
+  $('fname').textContent = name; $('chip').style.display = demo ? 'block' : 'none';
+  rebuild(false);
+}
+function openFile(f) {
+  busy('Dosya okunuyor…');
+  var rd = new FileReader();
+  rd.onerror = function () { busy('Dosya okunamadı. Tekrar deneyin.', true); };
+  rd.onload = function () {
+    setTimeout(function () {
+      try {
+        var buf = new Uint8Array(rd.result), data, head = String.fromCharCode.apply(null, buf.subarray(0, 6));
+        if (/^AC10/.test(head)) data = DWG.parse(buf);
+        else {
+          var txt; try { txt = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e1) { txt = new TextDecoder('windows-1254').decode(buf); }
+          if (txt.indexOf('SECTION') < 0) throw new Error('Bu dosya DWG ya da DXF gibi görünmüyor.');
+          data = parseDXF(txt);
+        }
+        if (!data.ents.length) throw new Error('Dosyada çizim nesnesi bulunamadı.');
+        load(data, f.name, false); busy('');
+      } catch (e) {
+        var m = String(e.message || e);
+        if (m.indexOf('UNSUPPORTED_VERSION') === 0) {
+          var names = { AC1015: 'AutoCAD 2000', AC1021: 'AutoCAD 2007', AC1014: 'AutoCAD R14', AC1012: 'AutoCAD R13' };
+          m = 'Bu DWG sürümü (' + (names[e.version] || e.version) + ') henüz okunamıyor. Dosyayı AutoCAD 2010, 2013 ya da 2018 DWG olarak veya DXF olarak kaydedip tekrar açın.';
+        }
+        busy(m, true);
+      }
+    }, 30);
+  };
+  rd.readAsArrayBuffer(f);
+}
+
+// ---- pointer handling ----
+var st = $('stage'), ptr = {}, moved = 0, pinch = null;
+function pick(x, y) {
+  var best = null, bd = 14 * 14, zc = S.mode === '3d' ? S.hc : 0;
+  M.order.forEach(function (c) {
+    if (S.solo && S.sel && c.key !== S.sel) return;
+    var a = c.cable;
+    for (var i = 0; i < a.length; i += 4) {
+      var p = proj(a[i], a[i + 1], zc), q = proj(a[i + 2], a[i + 3], zc); if (!p || !q) continue;
+      if ((p[0] < -50 && q[0] < -50) || (p[0] > W + 50 && q[0] > W + 50) || (p[1] < -50 && q[1] < -50) || (p[1] > H + 50 && q[1] > H + 50)) continue;
+      var dx = q[0] - p[0], dy = q[1] - p[1], l2 = dx * dx + dy * dy, t = l2 ? Math.max(0, Math.min(1, ((x - p[0]) * dx + (y - p[1]) * dy) / l2)) : 0;
+      var ex = p[0] + t * dx - x, ey = p[1] + t * dy - y, d2 = ex * ex + ey * ey;
+      if (d2 < bd) { bd = d2; best = c.key; }
+    }
+  });
+  return best;
+}
+function pan(dx, dy) {
+  var k = S.zoom * S.unit;
+  if (S.mode === '2d') { S.cx -= dx / k; S.cy += dy / k; return; }
+  var cy = Math.cos(S.yaw), sy = Math.sin(S.yaw), sp = Math.max(Math.sin(S.pitch), 0.3);
+  S.cx -= (cy * dx) / k; S.cy += (sy * dx) / k;
+  S.cx += (sy * dy / sp) / k; S.cy += (cy * dy / sp) / k;
+}
+function zoomAt(f, x, y) {
+  var nz = Math.min(Math.max(S.zoom * f, 1e-4), 1e5), k0 = S.zoom * S.unit, k1 = nz * S.unit;
+  if (S.mode === '2d') { var wx = S.cx + (x - W / 2) / k0, wy = S.cy - (y - H / 2) / k0; S.cx = wx - (x - W / 2) / k1; S.cy = wy + (y - H / 2) / k1; }
+  S.zoom = nz;
+}
+st.addEventListener('pointerdown', function (e) {
+  if (e.target.closest('#card,#busy')) return;
+  st.setPointerCapture(e.pointerId); ptr[e.pointerId] = { x: e.clientX, y: e.clientY, b: e.button, sh: e.shiftKey }; moved = 0;
+  var ids = Object.keys(ptr); if (ids.length === 2) { var a = ptr[ids[0]], b = ptr[ids[1]]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; moved = 99; }
+});
+st.addEventListener('pointermove', function (e) {
+  var p = ptr[e.pointerId]; if (!p) return;
+  var dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+  var ids = Object.keys(ptr), r = st.getBoundingClientRect();
+  if (ids.length >= 2 && pinch) {
+    var a = ptr[ids[0]], b = ptr[ids[1]], d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    if (pinch.d > 0 && d > 0) zoomAt(d / pinch.d, mx - r.left, my - r.top);
+    pan(mx - pinch.x, my - pinch.y); pinch = { d: d, x: mx, y: my }; draw(); return;
+  }
+  moved += Math.abs(dx) + Math.abs(dy); if (TOUR && TOUR.play && moved > 6) tourPlay(false);
+  if (S.mode === '3d' && !(p.sh || p.b === 2 || p.b === 1)) { S.yaw += dx * 0.006; S.pitch = Math.min(1.5, Math.max(0.12, S.pitch + dy * 0.006)); }
+  else pan(dx, dy);
+  draw();
+});
+function up(e) {
+  var p = ptr[e.pointerId]; if (!p) return; delete ptr[e.pointerId];
+  if (Object.keys(ptr).length < 2) pinch = null;
+  if (moved < 6 && e.type === 'pointerup' && M) { var r = st.getBoundingClientRect(), k = pick(e.clientX - r.left, e.clientY - r.top); if (k || S.sel) select(k, false); }
+}
+st.addEventListener('pointerup', up); st.addEventListener('pointercancel', up);
+st.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+st.addEventListener('wheel', function (e) { e.preventDefault(); var r = st.getBoundingClientRect(); zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top); draw(); }, { passive: false });
+
+// ---- walking along a circuit ----
+var TOUR = null;
+function routeOf(c) {
+  var q = 0.05 / S.unit, ids = {}, P = [], adj = [], a = c.cable, i, j;
+  function node(x, y) { var k = Math.round(x / q) + '_' + Math.round(y / q), id = ids[k]; if (id === undefined) { id = ids[k] = P.length; P.push([x, y]); adj.push([]); } return id; }
+  function link(u, v) { if (u === v) return; var l = Math.hypot(P[u][0] - P[v][0], P[u][1] - P[v][1]); adj[u].push([v, l]); adj[v].push([u, l]); }
+  for (i = 0; i < a.length; i += 4) link(node(a[i], a[i + 1]), node(a[i + 2], a[i + 3]));
+  var nc = P.length, R = 1.2 / S.unit; if (!nc) return null;
+  if (c.devs.length < 3000) c.devs.forEach(function (dv) { // cables stop at device symbols: bridge the gap through the device
+    var near = []; for (j = 0; j < nc; j++) if (Math.abs(P[j][0] - dv.x) < R && Math.abs(P[j][1] - dv.y) < R) near.push(j);
+    if (near.length) { var id = P.length; P.push([dv.x, dv.y]); adj.push([]); near.forEach(function (n) { link(id, n); }); }
+  });
+  if (P.length < 5000) for (var pass = 0; pass < 4; pass++) { // join loose cable ends to the nearest other piece (up to 3 m)
+    var comp = new Int32Array(P.length).fill(-1), nc2 = 0, st, G = 3 / S.unit, joined = 0;
+    for (i = 0; i < P.length; i++) { if (comp[i] >= 0) continue; st = [i]; comp[i] = nc2; while (st.length) { var u0 = st.pop(); for (j = 0; j < adj[u0].length; j++) { var v0 = adj[u0][j][0]; if (comp[v0] < 0) { comp[v0] = nc2; st.push(v0); } } } nc2++; }
+    if (nc2 < 2) break;
+    for (i = 0; i < P.length; i++) { if (adj[i].length > 1) continue; var bj = -1, bdist = G; for (j = 0; j < P.length; j++) { if (comp[j] === comp[i]) continue; var d0 = Math.hypot(P[j][0] - P[i][0], P[j][1] - P[i][1]); if (d0 < bdist) { bdist = d0; bj = j; } } if (bj >= 0) { link(i, bj); joined++; } }
+    if (!joined) break;
+  }
+  var s = 0, bd = Infinity; for (j = 0; j < nc; j++) { var dd = Math.hypot(P[j][0] - c.anchor[0], P[j][1] - c.anchor[1]); if (dd < bd) { bd = dd; s = j; } }
+  var n = P.length, dist = new Float64Array(n).fill(Infinity), prev = new Int32Array(n).fill(-1), done = new Uint8Array(n); dist[s] = 0;
+  for (;;) { var u = -1, m = Infinity; for (j = 0; j < n; j++) if (!done[j] && dist[j] < m) { m = dist[j]; u = j; } if (u < 0) break; done[u] = 1; for (j = 0; j < adj[u].length; j++) { var v = adj[u][j][0], nd = m + adj[u][j][1]; if (nd < dist[v]) { dist[v] = nd; prev[v] = u; } } }
+  var far = s; for (j = 0; j < n; j++) if (isFinite(dist[j]) && dist[j] > dist[far]) far = j;
+  var pts = []; for (u = far; u >= 0; u = prev[u]) pts.push(P[u]); pts.reverse();
+  if (pts.length < 2) return null;
+  var cum = [0]; for (j = 1; j < pts.length; j++) cum.push(cum[j - 1] + Math.hypot(pts[j][0] - pts[j - 1][0], pts[j][1] - pts[j - 1][1]) * S.unit);
+  return { pts: pts, cum: cum, total: cum[cum.length - 1] };
+}
+function tourAt(s) {
+  var T = TOUR, c = T.cum, i = T.i; s = Math.max(0, Math.min(T.total, s));
+  while (i < c.length - 2 && c[i + 1] < s) i++; while (i > 0 && c[i] > s) i--; T.i = i;
+  var f = c[i + 1] > c[i] ? (s - c[i]) / (c[i + 1] - c[i]) : 0, a = T.pts[i], b = T.pts[i + 1];
+  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+}
+function tourFrame(t) {
+  if (!TOUR) return; var T = TOUR, dt = Math.min(0.1, (t - (T.t || t)) / 1000); T.t = t;
+  if (T.play) T.s = Math.min(T.total, T.s + T.speed * dt);
+  var p = tourAt(T.s), q = tourAt(Math.min(T.total, T.s + 2.5)); T.i = Math.max(0, T.i - 1);
+  T.x = p[0]; T.y = p[1]; S.cx = p[0]; S.cy = p[1]; S.tz = S.hc;
+  if (Math.hypot(q[0] - p[0], q[1] - p[1]) * S.unit > 0.05) { var want = Math.atan2(q[0] - p[0], q[1] - p[1]), dy = want - S.yaw; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI; if (T.play) S.yaw += dy * Math.min(1, dt * 2.5); }
+  $('tp').textContent = (T.net ? 'Panodan ' : 'Baştan ') + fmt(T.s) + ' m / ' + fmt(T.total) + ' m'; $('tbar').style.width = (T.total ? T.s / T.total * 100 : 0) + '%';
+  if (T.s >= T.total && T.play) tourPlay(false);
+  draw(); T.raf = requestAnimationFrame(tourFrame);
+}
+function tourPlay(on) { if (!TOUR) return; if (on && TOUR.s >= TOUR.total) TOUR.s = 0; TOUR.play = on; $('tplay').textContent = on ? 'Duraklat' : (TOUR.s >= TOUR.total ? 'Baştan' : 'Devam'); }
+function startTour() {
+  var c = S.sel && M.circ[S.sel]; if (!c) return; stopTour();
+  var r = routeOf(c); if (!r) return;
+  TOUR = { net: c.net && !c.rest, pts: r.pts, cum: r.cum, total: r.total, s: 0, i: 0, speed: parseFloat($('tspeed').value), play: true, x: r.pts[0][0], y: r.pts[0][1] };
+  setMode('3d'); S.pitch = 0.42; S.zoom = H / (2 * 9 * Math.tan(0.35)); S.yaw = Math.atan2(r.pts[1][0] - r.pts[0][0], r.pts[1][1] - r.pts[0][1]);
+  $('tour').style.display = 'flex'; $('card').style.display = 'none'; tourPlay(true); TOUR.raf = requestAnimationFrame(tourFrame);
+}
+function stopTour() { if (!TOUR) return; cancelAnimationFrame(TOUR.raf); TOUR = null; S.tz = 0; $('tour').style.display = 'none'; if (M) card(); draw(); }
+$('cg').onclick = startTour; $('tstop').onclick = stopTour; $('tplay').onclick = function () { tourPlay(!TOUR.play); };
+$('tspeed').onchange = function () { if (TOUR) TOUR.speed = parseFloat(this.value); };
+
+// ---- controls ----
+function setMode(m) { if (m === '2d') stopTour(); S.mode = m; $('b2d').setAttribute('aria-pressed', m === '2d'); $('b3d').setAttribute('aria-pressed', m === '3d'); draw(); }
+$('b2d').onclick = function () { setMode('2d'); }; $('b3d').onclick = function () { setMode('3d'); };
+$('open').onclick = function () { $('file').click(); };
+$('file').onchange = function () { if (this.files[0]) openFile(this.files[0]); this.value = ''; };
+$('busyok').onclick = function () { busy(''); };
+st.addEventListener('dragover', function (e) { e.preventDefault(); });
+st.addEventListener('drop', function (e) { e.preventDefault(); if (e.dataTransfer.files[0]) openFile(e.dataTransfer.files[0]); });
+Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (b) {
+  b.onclick = function () {
+    Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (x) { x.setAttribute('aria-selected', x === b); });
+    Array.prototype.forEach.call(document.querySelectorAll('.pane'), function (x) { x.classList.toggle('on', x.id === b.dataset.p); });
+  };
+});
+$('circ').onclick = function (e) { var li = e.target.closest('li'); if (li) select(S.sel === li.dataset.k ? null : li.dataset.k, true); };
+$('circ').onkeydown = function (e) { if (e.key === 'Enter') { var li = e.target.closest('li'); if (li) select(li.dataset.k, true); } };
+$('lay').onchange = function (e) {
+  var k = e.target.dataset.k; if (!k) return;
+  var set = e.target.dataset.w === 'w' ? S.wallKeys : S.circKeys; stopTour();
+  if (e.target.checked) set[k] = 1; else delete set[k];
+  busy('Hatlar yeniden hesaplanıyor…'); setTimeout(function () { build(); if (S.sel && !M.circ[S.sel]) S.sel = null; card(); var q = $('q1').value; lists(); $('q1').value = q; draw(); busy(''); }, 30);
+};
+$('q1').oninput = lists; $('q2').oninput = lists;
+$('unit').onchange = function () { S.unit = parseFloat(this.value); build(); fit(S.sel && M.circ[S.sel] ? M.circ[S.sel].bb : M.bb); refresh(); };
+function num(id, key, min) { $(id).oninput = function () { var v = parseFloat(this.value); if (isFinite(v) && v >= min) { S[key] = v; refresh(); } }; }
+num('hc', 'hc', 0); num('hd', 'hd', 0); num('zx', 'zx', 1); num('hw', 'hw', 0);
+$('showwl').onchange = function () { S.walls = this.checked; draw(); };
+$('showbg').onchange = function () { S.bg = this.checked; draw(); };
+$('showtx').onchange = function () { S.tx = this.checked; draw(); };
+$('solo').onchange = function () { S.solo = this.checked; card(); draw(); };
+$('cx').onclick = function () { select(null, false); };
+$('cz').onclick = function () { if (S.sel) fit(M.circ[S.sel].bb, 0.8); };
+$('cs').onclick = function () { S.solo = !S.solo; $('solo').checked = S.solo; card(); draw(); };
+$('sheetbtn').onclick = function () { document.body.classList.toggle('closed'); setTimeout(resize, 0); };
+window.addEventListener('resize', resize);
+
+initGL();
+if (!gl) busy('Bu tarayıcı WebGL desteklemiyor, çizim gösterilemiyor.', true);
+W = st.clientWidth || 800; H = st.clientHeight || 600;
+load(demoData(), 'Örnek plan', true);
+S.sel = M.order.length ? M.order[M.order.length - 1].key : null; card(); lists();
+resize();
+window.__app = { S: S, model: function () { return M; }, load: load, select: select, setMode: setMode, startTour: startTour, tour: function () { return TOUR; }, DWG: window.DWG };
+})();
+
+</script>
+</body>
+</html>
